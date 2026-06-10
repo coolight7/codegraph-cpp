@@ -21,16 +21,16 @@
  */
 
 #include "codegraph/graph/traverser.h"
+#include <algorithm>
 #include <functional>
 #include <queue>
 #include <stack>
-#include <unordered_set>
 #include <unordered_map>
-#include <algorithm>
+#include <unordered_set>
 
 namespace codegraph {
 
-GraphTraverser::GraphTraverser(Database& db) : db_(db) {}
+GraphTraverser::GraphTraverser(Database &db) : db_(db) {}
 
 /**
  * 正向 BFS：找某函数调用了谁（callees）。
@@ -48,47 +48,50 @@ GraphTraverser::GraphTraverser(Database& db) : db_(db) {}
  * 返回值：TraversalResult，包含所有可达节点和对应的边
  */
 TraversalResult GraphTraverser::get_callees(int64_t node_id, int max_depth) {
-    TraversalResult result;
-    std::queue<std::pair<int64_t, int>> frontier;  // (节点ID, 深度)
-    std::unordered_set<int64_t> visited;
+  TraversalResult result;
+  std::queue<std::pair<int64_t, int>> frontier; // (节点ID, 深度)
+  std::unordered_set<int64_t> visited;
 
-    frontier.push({node_id, 0});
-    visited.insert(node_id);
+  frontier.push({node_id, 0});
+  visited.insert(node_id);
 
-    while (!frontier.empty()) {
-        auto [current_id, depth] = frontier.front();
-        frontier.pop();
+  while (!frontier.empty()) {
+    auto [current_id, depth] = frontier.front();
+    frontier.pop();
 
-        if (depth >= max_depth) continue;
+    if (depth >= max_depth)
+      continue;
 
-        // 获取当前节点的所有 Calls 边（正向）
-        auto edges = db_.get_edges_from(current_id, EdgeKind::Calls);
+    // 获取当前节点的所有 Calls 边（正向）
+    auto edges = db_.get_edges_from(current_id, EdgeKind::Calls);
 
-        // 批量收集目标节点 ID
-        std::vector<int64_t> target_ids;
-        for (auto& edge : edges) {
-            if (visited.count(edge.target_id)) continue;
-            visited.insert(edge.target_id);
-            target_ids.push_back(edge.target_id);
-        }
-
-        // 批量获取节点信息
-        auto nodes_vec = db_.get_nodes_by_ids(target_ids);
-        std::unordered_map<int64_t, Node> nodes_by_id;
-        for (auto& n : nodes_vec) nodes_by_id[n.id] = n;
-
-        // 将新节点加入结果和队列
-        for (auto& edge : edges) {
-            auto it = nodes_by_id.find(edge.target_id);
-            if (it != nodes_by_id.end()) {
-                result.nodes.push_back(it->second);
-                result.edges.push_back(edge);
-                frontier.push({edge.target_id, depth + 1});
-            }
-        }
+    // 批量收集目标节点 ID
+    std::vector<int64_t> target_ids;
+    for (auto &edge : edges) {
+      if (visited.contains(edge.target_id))
+        continue;
+      visited.insert(edge.target_id);
+      target_ids.push_back(edge.target_id);
     }
 
-    return result;
+    // 批量获取节点信息
+    auto nodes_vec = db_.get_nodes_by_ids(target_ids);
+    std::unordered_map<int64_t, Node> nodes_by_id;
+    for (auto &n : nodes_vec)
+      nodes_by_id[n.id] = n;
+
+    // 将新节点加入结果和队列
+    for (auto &edge : edges) {
+      auto it = nodes_by_id.find(edge.target_id);
+      if (it != nodes_by_id.end()) {
+        result.nodes.push_back(it->second);
+        result.edges.push_back(edge);
+        frontier.push({edge.target_id, depth + 1});
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -104,45 +107,48 @@ TraversalResult GraphTraverser::get_callees(int64_t node_id, int max_depth) {
  *   - 影响分析的基础：改了 foo()，需要知道谁受影响
  */
 TraversalResult GraphTraverser::get_callers(int64_t node_id, int max_depth) {
-    TraversalResult result;
-    std::queue<std::pair<int64_t, int>> frontier;
-    std::unordered_set<int64_t> visited;
+  TraversalResult result;
+  std::queue<std::pair<int64_t, int>> frontier;
+  std::unordered_set<int64_t> visited;
 
-    frontier.push({node_id, 0});
-    visited.insert(node_id);
+  frontier.push({node_id, 0});
+  visited.insert(node_id);
 
-    while (!frontier.empty()) {
-        auto [current_id, depth] = frontier.front();
-        frontier.pop();
+  while (!frontier.empty()) {
+    auto [current_id, depth] = frontier.front();
+    frontier.pop();
 
-        if (depth >= max_depth) continue;
+    if (depth >= max_depth)
+      continue;
 
-        // 反向：获取指向当前节点的 Calls 边
-        auto edges = db_.get_edges_to(current_id, EdgeKind::Calls);
+    // 反向：获取指向当前节点的 Calls 边
+    auto edges = db_.get_edges_to(current_id, EdgeKind::Calls);
 
-        // 批量收集源节点 ID
-        std::vector<int64_t> source_ids;
-        for (auto& edge : edges) {
-            if (visited.count(edge.source_id)) continue;
-            visited.insert(edge.source_id);
-            source_ids.push_back(edge.source_id);
-        }
-
-        auto nodes_vec = db_.get_nodes_by_ids(source_ids);
-        std::unordered_map<int64_t, Node> nodes_by_id;
-        for (auto& n : nodes_vec) nodes_by_id[n.id] = n;
-
-        for (auto& edge : edges) {
-            auto it = nodes_by_id.find(edge.source_id);
-            if (it != nodes_by_id.end()) {
-                result.nodes.push_back(it->second);
-                result.edges.push_back(edge);
-                frontier.push({edge.source_id, depth + 1});
-            }
-        }
+    // 批量收集源节点 ID
+    std::vector<int64_t> source_ids;
+    for (auto &edge : edges) {
+      if (visited.contains(edge.source_id))
+        continue;
+      visited.insert(edge.source_id);
+      source_ids.push_back(edge.source_id);
     }
 
-    return result;
+    auto nodes_vec = db_.get_nodes_by_ids(source_ids);
+    std::unordered_map<int64_t, Node> nodes_by_id;
+    for (auto &n : nodes_vec)
+      nodes_by_id[n.id] = n;
+
+    for (auto &edge : edges) {
+      auto it = nodes_by_id.find(edge.source_id);
+      if (it != nodes_by_id.end()) {
+        result.nodes.push_back(it->second);
+        result.edges.push_back(edge);
+        frontier.push({edge.source_id, depth + 1});
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -161,46 +167,49 @@ TraversalResult GraphTraverser::get_callers(int64_t node_id, int max_depth) {
  *   - PR review 时理解变更的传播范围
  */
 TraversalResult GraphTraverser::get_impact(int64_t node_id, int max_depth) {
-    TraversalResult result;
-    std::queue<std::pair<int64_t, int>> frontier;
-    std::unordered_set<int64_t> visited;
+  TraversalResult result;
+  std::queue<std::pair<int64_t, int>> frontier;
+  std::unordered_set<int64_t> visited;
 
-    frontier.push({node_id, 0});
-    visited.insert(node_id);
+  frontier.push({node_id, 0});
+  visited.insert(node_id);
 
-    while (!frontier.empty()) {
-        auto [current_id, depth] = frontier.front();
-        frontier.pop();
+  while (!frontier.empty()) {
+    auto [current_id, depth] = frontier.front();
+    frontier.pop();
 
-        if (depth >= max_depth) continue;
+    if (depth >= max_depth)
+      continue;
 
-        // 同时检查 Calls 和 References 两种边
-        for (auto kind : {EdgeKind::Calls, EdgeKind::References}) {
-            auto edges = db_.get_edges_to(current_id, kind);
+    // 同时检查 Calls 和 References 两种边
+    for (auto kind : {EdgeKind::Calls, EdgeKind::References}) {
+      auto edges = db_.get_edges_to(current_id, kind);
 
-            std::vector<int64_t> source_ids;
-            for (auto& edge : edges) {
-                if (visited.count(edge.source_id)) continue;
-                visited.insert(edge.source_id);
-                source_ids.push_back(edge.source_id);
-            }
+      std::vector<int64_t> source_ids;
+      for (auto &edge : edges) {
+        if (visited.contains(edge.source_id))
+          continue;
+        visited.insert(edge.source_id);
+        source_ids.push_back(edge.source_id);
+      }
 
-            auto nodes_vec = db_.get_nodes_by_ids(source_ids);
-            std::unordered_map<int64_t, Node> nodes_by_id;
-            for (auto& n : nodes_vec) nodes_by_id[n.id] = n;
+      auto nodes_vec = db_.get_nodes_by_ids(source_ids);
+      std::unordered_map<int64_t, Node> nodes_by_id;
+      for (auto &n : nodes_vec)
+        nodes_by_id[n.id] = n;
 
-            for (auto& edge : edges) {
-                auto it = nodes_by_id.find(edge.source_id);
-                if (it != nodes_by_id.end()) {
-                    result.nodes.push_back(it->second);
-                    result.edges.push_back(edge);
-                    frontier.push({edge.source_id, depth + 1});
-                }
-            }
+      for (auto &edge : edges) {
+        auto it = nodes_by_id.find(edge.source_id);
+        if (it != nodes_by_id.end()) {
+          result.nodes.push_back(it->second);
+          result.edges.push_back(edge);
+          frontier.push({edge.source_id, depth + 1});
         }
+      }
     }
+  }
 
-    return result;
+  return result;
 }
 
 /**
@@ -218,32 +227,36 @@ TraversalResult GraphTraverser::get_impact(int64_t node_id, int max_depth) {
  *   - 只沿 Calls 边正向查找
  *   - 路径长度受 max_depth 限制
  */
-std::vector<int64_t> GraphTraverser::find_path(int64_t from_id, int64_t to_id, int max_depth) {
-    std::queue<std::vector<int64_t>> frontier;
-    std::unordered_set<int64_t> visited;
+std::vector<int64_t> GraphTraverser::find_path(int64_t from_id, int64_t to_id,
+                                               int max_depth) {
+  std::queue<std::vector<int64_t>> frontier;
+  std::unordered_set<int64_t> visited;
 
-    frontier.push({from_id});
-    visited.insert(from_id);
+  frontier.push({from_id});
+  visited.insert(from_id);
 
-    while (!frontier.empty()) {
-        auto path = frontier.front();
-        frontier.pop();
+  while (!frontier.empty()) {
+    auto path = frontier.front();
+    frontier.pop();
 
-        int64_t current = path.back();
-        if (current == to_id) return path;
-        if ((int)path.size() > max_depth) continue;
+    int64_t current = path.back();
+    if (current == to_id)
+      return path;
+    if ((int)path.size() > max_depth)
+      continue;
 
-        auto edges = db_.get_edges_from(current, EdgeKind::Calls);
-        for (auto& edge : edges) {
-            if (visited.count(edge.target_id)) continue;
-            visited.insert(edge.target_id);
-            auto new_path = path;
-            new_path.push_back(edge.target_id);
-            frontier.push(new_path);
-        }
+    auto edges = db_.get_edges_from(current, EdgeKind::Calls);
+    for (auto &edge : edges) {
+      if (visited.contains(edge.target_id))
+        continue;
+      visited.insert(edge.target_id);
+      auto new_path = path;
+      new_path.push_back(edge.target_id);
+      frontier.push(new_path);
     }
+  }
 
-    return {};  // 无路径
+  return {}; // 无路径
 }
 
 /**
@@ -257,33 +270,38 @@ std::vector<int64_t> GraphTraverser::find_path(int64_t from_id, int64_t to_id, i
  *   例：A → B → C，find_reverse_path(C, A) 返回 [C, B, A]
  *   含义：C 被 B 调用，B 被 A 调用，所以改 A 会影响 C
  */
-std::vector<int64_t> GraphTraverser::find_reverse_path(int64_t from_id, int64_t to_id, int max_depth) {
-    std::queue<std::vector<int64_t>> frontier;
-    std::unordered_set<int64_t> visited;
+std::vector<int64_t> GraphTraverser::find_reverse_path(int64_t from_id,
+                                                       int64_t to_id,
+                                                       int max_depth) {
+  std::queue<std::vector<int64_t>> frontier;
+  std::unordered_set<int64_t> visited;
 
-    frontier.push({from_id});
-    visited.insert(from_id);
+  frontier.push({from_id});
+  visited.insert(from_id);
 
-    while (!frontier.empty()) {
-        auto path = frontier.front();
-        frontier.pop();
+  while (!frontier.empty()) {
+    auto path = frontier.front();
+    frontier.pop();
 
-        int64_t current = path.back();
-        if (current == to_id) return path;
-        if ((int)path.size() > max_depth) continue;
+    int64_t current = path.back();
+    if (current == to_id)
+      return path;
+    if ((int)path.size() > max_depth)
+      continue;
 
-        // 反向：找谁调用了 current（get_edges_to）
-        auto edges = db_.get_edges_to(current, EdgeKind::Calls);
-        for (auto& edge : edges) {
-            if (visited.count(edge.source_id)) continue;
-            visited.insert(edge.source_id);
-            auto new_path = path;
-            new_path.push_back(edge.source_id);
-            frontier.push(new_path);
-        }
+    // 反向：找谁调用了 current（get_edges_to）
+    auto edges = db_.get_edges_to(current, EdgeKind::Calls);
+    for (auto &edge : edges) {
+      if (visited.contains(edge.source_id))
+        continue;
+      visited.insert(edge.source_id);
+      auto new_path = path;
+      new_path.push_back(edge.source_id);
+      frontier.push(new_path);
     }
+  }
 
-    return {};
+  return {};
 }
 
 /**
@@ -291,25 +309,29 @@ std::vector<int64_t> GraphTraverser::find_reverse_path(int64_t from_id, int64_t 
  * 用于 MCP 的 codegraph_context 工具。
  */
 TraversalResult GraphTraverser::build_context(int64_t node_id, int max_depth) {
-    TraversalResult result;
+  TraversalResult result;
 
-    // 添加节点本身
-    auto node = db_.get_node(node_id);
-    if (node.has_value()) {
-        result.nodes.push_back(*node);
-    }
+  // 添加节点本身
+  auto node = db_.get_node(node_id);
+  if (node.has_value()) {
+    result.nodes.push_back(*node);
+  }
 
-    // 添加 callers（谁调用了它）
-    auto callers = get_callers(node_id, max_depth);
-    result.nodes.insert(result.nodes.end(), callers.nodes.begin(), callers.nodes.end());
-    result.edges.insert(result.edges.end(), callers.edges.begin(), callers.edges.end());
+  // 添加 callers（谁调用了它）
+  auto callers = get_callers(node_id, max_depth);
+  result.nodes.insert(result.nodes.end(), callers.nodes.begin(),
+                      callers.nodes.end());
+  result.edges.insert(result.edges.end(), callers.edges.begin(),
+                      callers.edges.end());
 
-    // 添加 callees（它调用了谁）
-    auto callees = get_callees(node_id, max_depth);
-    result.nodes.insert(result.nodes.end(), callees.nodes.begin(), callees.nodes.end());
-    result.edges.insert(result.edges.end(), callees.edges.begin(), callees.edges.end());
+  // 添加 callees（它调用了谁）
+  auto callees = get_callees(node_id, max_depth);
+  result.nodes.insert(result.nodes.end(), callees.nodes.begin(),
+                      callees.nodes.end());
+  result.edges.insert(result.edges.end(), callees.edges.begin(),
+                      callees.edges.end());
 
-    return result;
+  return result;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -341,88 +363,88 @@ TraversalResult GraphTraverser::build_context(int64_t node_id, int max_depth) {
  *   - on_stack: 快速判断节点是否在栈中（O(1) 查找）
  */
 std::vector<std::vector<int64_t>> GraphTraverser::find_sccs() {
-    // 第一步：收集所有函数/方法节点，构建邻接表。
-    // 只关注 Function 和 Method（不包括 Class、Variable 等），
-    // 因为调用图中的循环才是有意义的模式。
-    auto all_files = db_.get_all_files();
-    std::unordered_set<int64_t> node_ids;
-    std::unordered_map<int64_t, std::vector<int64_t>> adj;  // 邻接表
+  // 第一步：收集所有函数/方法节点，构建邻接表。
+  // 只关注 Function 和 Method（不包括 Class、Variable 等），
+  // 因为调用图中的循环才是有意义的模式。
+  auto all_files = db_.get_all_files();
+  std::unordered_set<int64_t> node_ids;
+  std::unordered_map<int64_t, std::vector<int64_t>> adj; // 邻接表
 
-    for (const auto& file : all_files) {
-        auto nodes = db_.find_nodes_by_file(file.path);
-        for (const auto& n : nodes) {
-            if (n.kind == NodeKind::Function || n.kind == NodeKind::Method) {
-                node_ids.insert(n.id);
-            }
+  for (const auto &file : all_files) {
+    auto nodes = db_.find_nodes_by_file(file.path);
+    for (const auto &n : nodes) {
+      if (n.kind == NodeKind::Function || n.kind == NodeKind::Method) {
+        node_ids.insert(n.id);
+      }
+    }
+  }
+
+  // 从调用边构建邻接表
+  for (int64_t id : node_ids) {
+    auto edges = db_.get_edges_from(id, EdgeKind::Calls);
+    for (const auto &e : edges) {
+      if (node_ids.contains(e.target_id)) {
+        adj[id].push_back(e.target_id);
+      }
+    }
+  }
+
+  // 第二步：Tarjan 算法主体
+  std::vector<std::vector<int64_t>> sccs; // 结果：所有 SCC
+  std::stack<int64_t> tarjan_stack;       // 当前 DFS 路径上的节点
+  std::unordered_set<int64_t> on_stack;   // 快速判断节点是否在栈中
+  std::unordered_map<int64_t, int> index_map;   // 节点 → 发现时间戳
+  std::unordered_map<int64_t, int> lowlink_map; // 节点 → lowlink 值
+  int current_index = 0;
+
+  // 递归 lambda：从节点 v 开始 DFS
+  using Fn = std::function<void(int64_t)>;
+  Fn strongconnect = [&](int64_t v) {
+    // 给 v 分配时间戳，初始化 lowlink = 自己的 index
+    index_map[v] = current_index;
+    lowlink_map[v] = current_index;
+    current_index++;
+    tarjan_stack.push(v);
+    on_stack.insert(v);
+
+    // 遍历 v 的所有后继节点
+    auto it = adj.find(v);
+    if (it != adj.end()) {
+      for (int64_t w : it->second) {
+        if (index_map.find(w) == index_map.end()) {
+          // 后继 w 未访问：递归，然后用 w 的 lowlink 更新 v
+          strongconnect(w);
+          lowlink_map[v] = std::min(lowlink_map[v], lowlink_map[w]);
+        } else if (on_stack.contains(w)) {
+          // 后继 w 在栈中：说明 w 是 v 的祖先，v 和 w 在同一个 SCC
+          lowlink_map[v] = std::min(lowlink_map[v], index_map[w]);
         }
+        // 后继 w 已访问但不在栈中：属于另一个已完成的 SCC，跳过
+      }
     }
 
-    // 从调用边构建邻接表
-    for (int64_t id : node_ids) {
-        auto edges = db_.get_edges_from(id, EdgeKind::Calls);
-        for (const auto& e : edges) {
-            if (node_ids.count(e.target_id)) {
-                adj[id].push_back(e.target_id);
-            }
-        }
+    // 如果 v 是 SCC 的根（lowlink == 自己的 index），弹出整个 SCC
+    if (lowlink_map[v] == index_map[v]) {
+      std::vector<int64_t> scc;
+      int64_t w;
+      do {
+        w = tarjan_stack.top();
+        tarjan_stack.pop();
+        on_stack.erase(w);
+        scc.push_back(w);
+      } while (w != v);
+      sccs.push_back(std::move(scc));
     }
+  };
 
-    // 第二步：Tarjan 算法主体
-    std::vector<std::vector<int64_t>> sccs;          // 结果：所有 SCC
-    std::stack<int64_t> tarjan_stack;                 // 当前 DFS 路径上的节点
-    std::unordered_set<int64_t> on_stack;             // 快速判断节点是否在栈中
-    std::unordered_map<int64_t, int> index_map;       // 节点 → 发现时间戳
-    std::unordered_map<int64_t, int> lowlink_map;     // 节点 → lowlink 值
-    int current_index = 0;
-
-    // 递归 lambda：从节点 v 开始 DFS
-    using Fn = std::function<void(int64_t)>;
-    Fn strongconnect = [&](int64_t v) {
-        // 给 v 分配时间戳，初始化 lowlink = 自己的 index
-        index_map[v] = current_index;
-        lowlink_map[v] = current_index;
-        current_index++;
-        tarjan_stack.push(v);
-        on_stack.insert(v);
-
-        // 遍历 v 的所有后继节点
-        auto it = adj.find(v);
-        if (it != adj.end()) {
-            for (int64_t w : it->second) {
-                if (index_map.find(w) == index_map.end()) {
-                    // 后继 w 未访问：递归，然后用 w 的 lowlink 更新 v
-                    strongconnect(w);
-                    lowlink_map[v] = std::min(lowlink_map[v], lowlink_map[w]);
-                } else if (on_stack.count(w)) {
-                    // 后继 w 在栈中：说明 w 是 v 的祖先，v 和 w 在同一个 SCC
-                    lowlink_map[v] = std::min(lowlink_map[v], index_map[w]);
-                }
-                // 后继 w 已访问但不在栈中：属于另一个已完成的 SCC，跳过
-            }
-        }
-
-        // 如果 v 是 SCC 的根（lowlink == 自己的 index），弹出整个 SCC
-        if (lowlink_map[v] == index_map[v]) {
-            std::vector<int64_t> scc;
-            int64_t w;
-            do {
-                w = tarjan_stack.top();
-                tarjan_stack.pop();
-                on_stack.erase(w);
-                scc.push_back(w);
-            } while (w != v);
-            sccs.push_back(std::move(scc));
-        }
-    };
-
-    // 从所有未访问节点开始（处理不连通的图）
-    for (int64_t id : node_ids) {
-        if (index_map.find(id) == index_map.end()) {
-            strongconnect(id);
-        }
+  // 从所有未访问节点开始（处理不连通的图）
+  for (int64_t id : node_ids) {
+    if (index_map.find(id) == index_map.end()) {
+      strongconnect(id);
     }
+  }
 
-    return sccs;
+  return sccs;
 }
 
 /**
@@ -430,14 +452,14 @@ std::vector<std::vector<int64_t>> GraphTraverser::find_sccs() {
  * 大小为 1 的 SCC 是正常节点（自己调用自己不算循环）。
  */
 std::vector<std::vector<int64_t>> GraphTraverser::find_circular_dependencies() {
-    auto all_sccs = find_sccs();
-    std::vector<std::vector<int64_t>> cycles;
-    for (auto& scc : all_sccs) {
-        if (scc.size() > 1) {
-            cycles.push_back(std::move(scc));
-        }
+  auto all_sccs = find_sccs();
+  std::vector<std::vector<int64_t>> cycles;
+  for (auto &scc : all_sccs) {
+    if (scc.size() > 1) {
+      cycles.push_back(std::move(scc));
     }
-    return cycles;
+  }
+  return cycles;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -460,101 +482,107 @@ std::vector<std::vector<int64_t>> GraphTraverser::find_circular_dependencies() {
  * @param top_n 每个排名返回前 N 个
  */
 GraphMetrics GraphTraverser::compute_metrics(int top_n) {
-    GraphMetrics metrics;
+  GraphMetrics metrics;
 
-    // 收集所有函数/方法节点
-    auto all_files = db_.get_all_files();
-    std::unordered_map<int64_t, Node> nodes_map;
-    std::unordered_map<int64_t, int> in_degree;   // 被调用次数
-    std::unordered_map<int64_t, int> out_degree;  // 调用次数
+  // 收集所有函数/方法节点
+  auto all_files = db_.get_all_files();
+  std::unordered_map<int64_t, Node> nodes_map;
+  std::unordered_map<int64_t, int> in_degree;  // 被调用次数
+  std::unordered_map<int64_t, int> out_degree; // 调用次数
 
-    for (const auto& file : all_files) {
-        auto nodes = db_.find_nodes_by_file(file.path);
-        for (const auto& n : nodes) {
-            if (n.kind == NodeKind::Function || n.kind == NodeKind::Method) {
-                nodes_map[n.id] = n;
-                in_degree[n.id] = 0;
-                out_degree[n.id] = 0;
-            }
+  for (const auto &file : all_files) {
+    auto nodes = db_.find_nodes_by_file(file.path);
+    for (const auto &n : nodes) {
+      if (n.kind == NodeKind::Function || n.kind == NodeKind::Method) {
+        nodes_map[n.id] = n;
+        in_degree[n.id] = 0;
+        out_degree[n.id] = 0;
+      }
+    }
+  }
+
+  metrics.total_nodes = static_cast<int>(nodes_map.size());
+
+  // 统计入度/出度
+  for (const auto &[id, _] : nodes_map) {
+    auto edges = db_.get_edges_from(id, EdgeKind::Calls);
+    for (const auto &e : edges) {
+      if (nodes_map.contains(e.target_id)) {
+        out_degree[id]++;
+        in_degree[e.target_id]++;
+        metrics.total_edges++;
+      }
+    }
+  }
+
+  // 入度排名（被调用最多）→ 代码复用度指标
+  std::vector<std::pair<int64_t, int>> in_vec(in_degree.begin(),
+                                              in_degree.end());
+  std::sort(in_vec.begin(), in_vec.end(),
+            [](const auto &a, const auto &b) { return a.second > b.second; });
+  for (int i = 0; i < std::min(top_n, static_cast<int>(in_vec.size())); ++i) {
+    if (in_vec[i].second > 0) {
+      metrics.most_called.push_back(
+          {nodes_map[in_vec[i].first], in_vec[i].second});
+    }
+  }
+
+  // 出度排名（调用最多）→ 代码复杂度指标
+  std::vector<std::pair<int64_t, int>> out_vec(out_degree.begin(),
+                                               out_degree.end());
+  std::sort(out_vec.begin(), out_vec.end(),
+            [](const auto &a, const auto &b) { return a.second > b.second; });
+  for (int i = 0; i < std::min(top_n, static_cast<int>(out_vec.size())); ++i) {
+    if (out_vec[i].second > 0) {
+      metrics.most_calling.push_back(
+          {nodes_map[out_vec[i].first], out_vec[i].second});
+    }
+  }
+
+  // 循环依赖数
+  metrics.circular_deps = static_cast<int>(find_circular_dependencies().size());
+
+  // 调用深度：从入口点（入度为 0 或 main）正向 BFS
+  int total_depth = 0;
+  int depth_samples = 0;
+  for (const auto &[id, _] : nodes_map) {
+    // 只从入口点开始（入度为 0 或名为 main）
+    if (in_degree[id] > 0 && nodes_map[id].name != "main")
+      continue;
+
+    // BFS 计算最大深度
+    std::queue<std::pair<int64_t, int>> frontier;
+    std::unordered_set<int64_t> visited;
+    frontier.push({id, 0});
+    visited.insert(id);
+    int max_d = 0;
+
+    while (!frontier.empty()) {
+      auto [current, depth] = frontier.front();
+      frontier.pop();
+      max_d = std::max(max_d, depth);
+
+      auto edges = db_.get_edges_from(current, EdgeKind::Calls);
+      for (const auto &e : edges) {
+        if (!visited.contains(e.target_id) && nodes_map.contains(e.target_id)) {
+          visited.insert(e.target_id);
+          frontier.push({e.target_id, depth + 1});
         }
+      }
     }
 
-    metrics.total_nodes = static_cast<int>(nodes_map.size());
-
-    // 统计入度/出度
-    for (const auto& [id, _] : nodes_map) {
-        auto edges = db_.get_edges_from(id, EdgeKind::Calls);
-        for (const auto& e : edges) {
-            if (nodes_map.count(e.target_id)) {
-                out_degree[id]++;
-                in_degree[e.target_id]++;
-                metrics.total_edges++;
-            }
-        }
+    if (max_d > 0) {
+      total_depth += max_d;
+      depth_samples++;
+      metrics.max_call_depth = std::max(metrics.max_call_depth, max_d);
     }
+  }
 
-    // 入度排名（被调用最多）→ 代码复用度指标
-    std::vector<std::pair<int64_t, int>> in_vec(in_degree.begin(), in_degree.end());
-    std::sort(in_vec.begin(), in_vec.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
-    for (int i = 0; i < std::min(top_n, static_cast<int>(in_vec.size())); ++i) {
-        if (in_vec[i].second > 0) {
-            metrics.most_called.push_back({nodes_map[in_vec[i].first], in_vec[i].second});
-        }
-    }
+  metrics.avg_call_depth =
+      depth_samples > 0 ? static_cast<double>(total_depth) / depth_samples
+                        : 0.0;
 
-    // 出度排名（调用最多）→ 代码复杂度指标
-    std::vector<std::pair<int64_t, int>> out_vec(out_degree.begin(), out_degree.end());
-    std::sort(out_vec.begin(), out_vec.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
-    for (int i = 0; i < std::min(top_n, static_cast<int>(out_vec.size())); ++i) {
-        if (out_vec[i].second > 0) {
-            metrics.most_calling.push_back({nodes_map[out_vec[i].first], out_vec[i].second});
-        }
-    }
-
-    // 循环依赖数
-    metrics.circular_deps = static_cast<int>(find_circular_dependencies().size());
-
-    // 调用深度：从入口点（入度为 0 或 main）正向 BFS
-    int total_depth = 0;
-    int depth_samples = 0;
-    for (const auto& [id, _] : nodes_map) {
-        // 只从入口点开始（入度为 0 或名为 main）
-        if (in_degree[id] > 0 && nodes_map[id].name != "main") continue;
-
-        // BFS 计算最大深度
-        std::queue<std::pair<int64_t, int>> frontier;
-        std::unordered_set<int64_t> visited;
-        frontier.push({id, 0});
-        visited.insert(id);
-        int max_d = 0;
-
-        while (!frontier.empty()) {
-            auto [current, depth] = frontier.front();
-            frontier.pop();
-            max_d = std::max(max_d, depth);
-
-            auto edges = db_.get_edges_from(current, EdgeKind::Calls);
-            for (const auto& e : edges) {
-                if (!visited.count(e.target_id) && nodes_map.count(e.target_id)) {
-                    visited.insert(e.target_id);
-                    frontier.push({e.target_id, depth + 1});
-                }
-            }
-        }
-
-        if (max_d > 0) {
-            total_depth += max_d;
-            depth_samples++;
-            metrics.max_call_depth = std::max(metrics.max_call_depth, max_d);
-        }
-    }
-
-    metrics.avg_call_depth = depth_samples > 0
-        ? static_cast<double>(total_depth) / depth_samples : 0.0;
-
-    return metrics;
+  return metrics;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -575,20 +603,21 @@ GraphMetrics GraphTraverser::compute_metrics(int top_n) {
  *   例：A → B → C，impact(C) = {A, B}
  *   路径是 C → B → A（C 被 B 调用，B 被 A 调用）
  */
-std::vector<ImpactNode> GraphTraverser::get_impact_chain(int64_t node_id, int max_depth) {
-    // 先做标准影响分析
-    auto impact_result = get_impact(node_id, max_depth);
+std::vector<ImpactNode> GraphTraverser::get_impact_chain(int64_t node_id,
+                                                         int max_depth) {
+  // 先做标准影响分析
+  auto impact_result = get_impact(node_id, max_depth);
 
-    // 对每个受影响节点，找反向调用链
-    std::vector<ImpactNode> result;
-    for (const auto& node : impact_result.nodes) {
-        ImpactNode in;
-        in.node = node;
-        in.path = find_reverse_path(node_id, node.id, max_depth);
-        result.push_back(std::move(in));
-    }
+  // 对每个受影响节点，找反向调用链
+  std::vector<ImpactNode> result;
+  for (const auto &node : impact_result.nodes) {
+    ImpactNode in;
+    in.node = node;
+    in.path = find_reverse_path(node_id, node.id, max_depth);
+    result.push_back(std::move(in));
+  }
 
-    return result;
+  return result;
 }
 
-}  // namespace codegraph
+} // namespace codegraph

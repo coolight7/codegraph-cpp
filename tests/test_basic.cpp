@@ -259,9 +259,9 @@ namespace math {
     calls.insert(ref.ref_name);
   }
 
-  CHECK(calls.count("add") > 0);
-  CHECK(calls.count("reset") > 0);
-  CHECK(calls.count("get") > 0);
+  CHECK(calls.contains("add") > 0);
+  CHECK(calls.contains("reset") > 0);
+  CHECK(calls.contains("get") > 0);
   std::cout << "  [PASS] cpp_member_call_extraction\n";
 }
 
@@ -778,7 +778,7 @@ void test_tarjan_scc() {
   for (const auto &scc : sccs) {
     if (scc.size() == 3) {
       std::unordered_set<int64_t> ids(scc.begin(), scc.end());
-      if (ids.count(aid) && ids.count(bid) && ids.count(cid)) {
+      if (ids.contains(aid) && ids.contains(bid) && ids.contains(cid)) {
         found_cycle = true;
       }
     }
