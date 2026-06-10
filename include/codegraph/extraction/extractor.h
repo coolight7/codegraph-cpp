@@ -41,9 +41,9 @@ namespace codegraph {
  * 未解析引用（UnresolvedRef）：函数调用目标还未解析为正式的边
  */
 struct ExtractionResult {
-    std::vector<Node> nodes;
-    std::vector<Edge> edges;
-    std::vector<UnresolvedRef> unresolved;
+  std::vector<Node> nodes;
+  std::vector<Edge> edges;
+  std::vector<UnresolvedRef> unresolved;
 };
 
 /**
@@ -54,19 +54,20 @@ struct ExtractionResult {
  */
 class LanguageExtractor {
 public:
-    virtual ~LanguageExtractor() = default;
+  virtual ~LanguageExtractor() = default;
 
-    /**
-     * 提取源代码中的符号和调用关系。
-     *
-     * @param file_path 文件路径（用于记录符号位置）
-     * @param source 源代码文本
-     * @return 提取结果（节点 + 未解析引用）
-     */
-    virtual ExtractionResult extract(const std::string& file_path, const std::string& source) = 0;
+  /**
+   * 提取源代码中的符号和调用关系。
+   *
+   * @param file_path 文件路径（用于记录符号位置）
+   * @param source 源代码文本
+   * @return 提取结果（节点 + 未解析引用）
+   */
+  virtual ExtractionResult extract(const std::string &file_path,
+                                   const std::string &source) = 0;
 
-    /** 返回语言名（如 "cpp"、"python"）。 */
-    virtual const char* language_name() const = 0;
+  /** 返回语言名（如 "cpp"、"python"）。 */
+  virtual const char *language_name() const = 0;
 };
 
 /**
@@ -83,31 +84,34 @@ public:
  */
 class CppExtractor : public LanguageExtractor {
 public:
-    CppExtractor();
-    ~CppExtractor() override;
+  CppExtractor();
+  ~CppExtractor() override;
 
-    ExtractionResult extract(const std::string& file_path, const std::string& source) override;
-    const char* language_name() const override { return "cpp"; }
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "cpp"; }
 
 private:
-    TSLanguage* lang_;  // tree-sitter 的 C++ 语言描述符
+  TSLanguage *lang_; // tree-sitter 的 C++ 语言描述符
 
-    /** 递归遍历 AST（入口）。 */
-    void walk_tree(TSNode node, const std::string& source, const std::string& file_path,
-                   int64_t parent_id, ExtractionResult& result);
+  /** 递归遍历 AST（入口）。 */
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
 
-    /** 递归遍历 AST（带作用域追踪）。 */
-    void walk_tree_scoped(TSNode node, const std::string& source, const std::string& file_path,
-                          int64_t parent_id, const std::string& scope, ExtractionResult& result);
+  /** 递归遍历 AST（带作用域追踪）。 */
+  void walk_tree_scoped(TSNode node, const std::string &source,
+                        const std::string &file_path, int64_t parent_id,
+                        const std::string &scope, ExtractionResult &result);
 
-    /** 从 AST 节点提取源代码文本。 */
-    std::string get_node_text(TSNode node, const std::string& source);
+  /** 从 AST 节点提取源代码文本。 */
+  std::string get_node_text(TSNode node, const std::string &source);
 
-    /** 提取函数签名（去掉函数体）。 */
-    std::string extract_signature(TSNode node, const std::string& source);
+  /** 提取函数签名（去掉函数体）。 */
+  std::string extract_signature(TSNode node, const std::string &source);
 
-    /** 提取文档注释。 */
-    std::string extract_docstring(TSNode node, const std::string& source);
+  /** 提取文档注释。 */
+  std::string extract_docstring(TSNode node, const std::string &source);
 };
 
 /**
@@ -123,34 +127,67 @@ private:
  */
 class PythonExtractor : public LanguageExtractor {
 public:
-    PythonExtractor();
-    ~PythonExtractor() override;
+  PythonExtractor();
+  ~PythonExtractor() override;
 
-    ExtractionResult extract(const std::string& file_path, const std::string& source) override;
-    const char* language_name() const override { return "python"; }
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "python"; }
 
 private:
-    TSLanguage* lang_;  // tree-sitter 的 Python 语言描述符
+  TSLanguage *lang_; // tree-sitter 的 Python 语言描述符
 
-    void walk_tree(TSNode node, const std::string& source, const std::string& file_path,
-                   int64_t parent_id, ExtractionResult& result);
-    std::string get_node_text(TSNode node, const std::string& source);
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
+ * JavaScript 语言提取器。
+ *
+ * 使用 tree-sitter 解析 JavaScript 源代码，提取：
+ *   - 函数定义（function、箭头函数）
+ *   - 类定义（class）
+ *   - import/export 语句
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 JavaScript 语言描述符通过 tree_sitter_javascript() 获取。
+ */
+class JsExtractor : public LanguageExtractor {
+public:
+  JsExtractor();
+  ~JsExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "javascript"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 const std::string &scope, ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
 };
 
 /**
  * 根据语言名创建对应的提取器。
  *
- * @param language 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"）
+ * @param language
+ * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"）
  * @return 提取器实例，不支持的语言返回 nullptr
  */
-std::unique_ptr<LanguageExtractor> create_extractor(const std::string& language);
+std::unique_ptr<LanguageExtractor>
+create_extractor(const std::string &language);
 
 /**
  * 根据文件扩展名检测语言。
  *
  * @param file_path 文件路径
- * @return 语言标识（"cpp"/"python"/""）
+ * @return 语言标识（"cpp"/"python"/"javascript"/""）
  */
-std::string detect_language(const std::string& file_path);
+std::string detect_language(const std::string &file_path);
 
-}  // namespace codegraph
+} // namespace codegraph
