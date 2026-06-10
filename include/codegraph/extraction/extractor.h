@@ -262,10 +262,38 @@ private:
 };
 
 /**
+ * Markdown 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Markdown 文档，提取：
+ *   - 标题（atx_heading / setext_heading）→ 文档节结构
+ *   - 链接引用定义（link_reference_definition）→ 外部资源引用
+ *   - 代码块（fenced_code_block）→ 内嵌代码段
+ *
+ * Markdown 提取器不需要作用域追踪和调用提取，
+ * 因为 Markdown 是文档格式而非编程语言。
+ */
+class MarkdownExtractor : public LanguageExtractor {
+public:
+  MarkdownExtractor();
+  ~MarkdownExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "markdown"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
- * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"/"typescript"/"ts"/"tsx"）
+ * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"/"typescript"/"ts"/"tsx"/"markdown"/"md"）
  * @return 提取器实例，不支持的语言返回 nullptr
  */
 std::unique_ptr<LanguageExtractor>
@@ -275,7 +303,8 @@ create_extractor(const std::string &language);
  * 根据文件扩展名检测语言。
  *
  * @param file_path 文件路径
- * @return 语言标识（"cpp"/"python"/"javascript"/"dart"/"typescript"/"tsx"/""）
+ * @return
+ * 语言标识（"cpp"/"python"/"javascript"/"dart"/"typescript"/"tsx"/"markdown"/""）
  */
 std::string detect_language(const std::string &file_path);
 

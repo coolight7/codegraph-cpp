@@ -69,6 +69,20 @@ add_library(ts_tsx STATIC
 target_include_directories(ts_tsx PUBLIC ${GRAMMAR_DIR}/tree-sitter-typescript/tsx/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_tsx PUBLIC tree_sitter)
 
+add_library(ts_markdown STATIC
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown/src/parser.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown/src/scanner.c
+)
+target_include_directories(ts_markdown PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_markdown PUBLIC tree_sitter)
+
+add_library(ts_markdown_inline STATIC
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown-inline/src/parser.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c
+)
+target_include_directories(ts_markdown_inline PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown-inline/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_markdown_inline PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -109,6 +123,8 @@ target_link_libraries(codegraph_core PUBLIC
     ts_dart
     ts_typescript
     ts_tsx
+    ts_markdown
+    ts_markdown_inline
     pthread
 )
 

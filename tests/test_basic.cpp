@@ -908,6 +908,9 @@ void test_detect_language() {
   CHECK(detect_language("foo.tsx") == "tsx");
   CHECK(detect_language("foo.txt") == "");
   CHECK(detect_language("foo.rs") == "");
+  CHECK(detect_language("foo.md") == "markdown");
+  CHECK(detect_language("foo.mdx") == "markdown");
+  CHECK(detect_language("foo.markdown") == "markdown");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -1313,6 +1316,84 @@ void test_compute_metrics() {
   std::cout << "  [PASS] compute_metrics\n";
 }
 
+void test_markdown_extractor() {
+  MarkdownExtractor extractor;
+  std::string source = R"(
+# Project Title
+
+## Introduction
+
+This is a paragraph with **bold** and *italic* text.
+
+## Features
+
+- Feature 1
+- Feature 2
+- Feature 3
+
+### Code Example
+
+```cpp
+int main() {
+    return 0;
+}
+```
+
+```python
+def hello():
+    print("world")
+```
+
+[google]: https://www.google.com
+[github]: https://github.com
+)";
+
+  auto result = extractor.extract("/tmp/test.md", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_title = false, found_intro = false, found_features = false,
+       found_code_example = false, found_google = false, found_github = false;
+  bool found_cpp_code = false, found_python_code = false;
+
+  for (auto &n : result.nodes) {
+    if (n.name == "Project Title")
+      found_title = true;
+    if (n.name == "Introduction")
+      found_intro = true;
+    if (n.name == "Features")
+      found_features = true;
+    if (n.name == "Code Example")
+      found_code_example = true;
+    if (n.name == "[google] -> https://www.google.com")
+      found_google = true;
+    if (n.name == "[github] -> https://github.com")
+      found_github = true;
+    if (n.name == "cpp")
+      found_cpp_code = true;
+    if (n.name == "python")
+      found_python_code = true;
+  }
+  CHECK(found_title);
+  CHECK(found_intro);
+  CHECK(found_features);
+  CHECK(found_code_example);
+  CHECK(found_google);
+  CHECK(found_github);
+  CHECK(found_cpp_code);
+  CHECK(found_python_code);
+
+  std::cout << "  [PASS] markdown_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_markdown_empty() {
+  MarkdownExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.md", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] markdown_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -1397,6 +1478,8 @@ int main() {
   test_ts_member_call_extraction();
   test_tsx_extractor();
   test_detect_language();
+  test_markdown_extractor();
+  test_markdown_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
