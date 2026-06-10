@@ -663,6 +663,229 @@ void useCalculator() {
   std::cout << "  [PASS] dart_member_call_extraction\n";
 }
 
+void test_ts_extractor() {
+  TsExtractor extractor;
+  std::string source = R"(
+import { helper } from './utils';
+
+function greet(name: string): void {
+    console.log(`Hello, ${name}`);
+}
+
+class Greeter {
+    sayHello(name: string): void {
+        greet(name);
+        this.log(name);
+    }
+
+    private log(msg: string): void {
+        console.log(msg);
+    }
+
+    async fetchData(url: string): Promise<Response> {
+        const response = await fetch(url);
+        return response.json();
+    }
+}
+
+interface Printable {
+    print(): void;
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+type Point = {
+    x: number;
+    y: number;
+};
+
+abstract class BaseService {
+    abstract init(): void;
+}
+
+const formatName = (first: string, last: string): string => {
+    return `${last}, ${first}`;
+};
+)";
+
+  auto result = extractor.extract("/tmp/test.ts", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_greet = false, found_greeter = false, found_sayHello = false,
+       found_log = false, found_fetchData = false, found_printable = false,
+       found_color = false, found_base_service = false;
+  bool found_qualified_sayHello = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "greet")
+      found_greet = true;
+    if (n.name == "Greeter")
+      found_greeter = true;
+    if (n.name == "sayHello")
+      found_sayHello = true;
+    if (n.name == "log")
+      found_log = true;
+    if (n.name == "fetchData")
+      found_fetchData = true;
+    if (n.name == "Printable")
+      found_printable = true;
+    if (n.name == "Color")
+      found_color = true;
+    if (n.name == "BaseService")
+      found_base_service = true;
+    if (n.qualified_name == "Greeter.sayHello")
+      found_qualified_sayHello = true;
+  }
+  CHECK(found_greet);
+  CHECK(found_greeter);
+  CHECK(found_sayHello);
+  CHECK(found_log);
+  CHECK(found_fetchData);
+  CHECK(found_printable);
+  CHECK(found_color);
+  CHECK(found_base_service);
+  CHECK(found_qualified_sayHello);
+
+  std::cout << "  [PASS] ts_extractor (" << result.nodes.size() << " nodes)\n";
+}
+
+void test_ts_call_extraction() {
+  TsExtractor extractor;
+  std::string source = R"(
+function foo(): void {
+    bar();
+}
+
+function bar(): void {
+    foo();
+    baz(1, 2);
+}
+
+function baz(a: number, b: number): number {
+    return a + b;
+}
+
+class Worker {
+    doWork(): void {
+        foo();
+        this.internalWork();
+    }
+
+    private internalWork(): void {
+        baz(1, 2);
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.ts", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false,
+       found_internal_work_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+    if (ref.ref_name == "internalWork")
+      found_internal_work_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  CHECK(found_internal_work_call);
+  std::cout << "  [PASS] ts_call_extraction\n";
+}
+
+void test_ts_member_call_extraction() {
+  TsExtractor extractor;
+  std::string source = R"(
+class Calculator {
+    add(a: number, b: number): number {
+        return a + b;
+    }
+
+    compute(): number {
+        this.add(1, 2);
+        const result = this.add(3, 4);
+        return result;
+    }
+}
+
+function useCalculator(): void {
+    const calc = new Calculator();
+    calc.compute();
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_member.ts", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_add_call = false, found_compute_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "add")
+      found_add_call = true;
+    if (ref.ref_name == "compute")
+      found_compute_call = true;
+  }
+  CHECK(found_add_call);
+  CHECK(found_compute_call);
+  std::cout << "  [PASS] ts_member_call_extraction\n";
+}
+
+void test_tsx_extractor() {
+  TsxExtractor extractor;
+  std::string source = R"(
+import React from 'react';
+
+interface Props {
+    name: string;
+    age: number;
+}
+
+function Greet(props: Props): JSX.Element {
+    return <div>Hello, {props.name}!</div>;
+}
+
+class App extends React.Component<Props> {
+    render(): JSX.Element {
+        return (
+            <div>
+                <Greet name={this.props.name} age={this.props.age} />
+            </div>
+        );
+    }
+}
+
+const StatelessApp: React.FC<Props> = ({ name, age }) => {
+    return <Greet name={name} age={age} />;
+};
+)";
+
+  auto result = extractor.extract("/tmp/test.tsx", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_greet = false, found_app = false, found_render = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "Greet")
+      found_greet = true;
+    if (n.name == "App")
+      found_app = true;
+    if (n.name == "render")
+      found_render = true;
+  }
+  CHECK(found_greet);
+  CHECK(found_app);
+  CHECK(found_render);
+
+  std::cout << "  [PASS] tsx_extractor (" << result.nodes.size() << " nodes)\n";
+}
+
 void test_detect_language() {
   CHECK(detect_language("foo.cpp") == "cpp");
   CHECK(detect_language("foo.cc") == "cpp");
@@ -678,6 +901,11 @@ void test_detect_language() {
   CHECK(detect_language("foo.mjs") == "javascript");
   CHECK(detect_language("foo.jsx") == "javascript");
   CHECK(detect_language("foo.cjs") == "javascript");
+  CHECK(detect_language("foo.dart") == "dart");
+  CHECK(detect_language("foo.ts") == "typescript");
+  CHECK(detect_language("foo.mts") == "typescript");
+  CHECK(detect_language("foo.cts") == "typescript");
+  CHECK(detect_language("foo.tsx") == "tsx");
   CHECK(detect_language("foo.txt") == "");
   CHECK(detect_language("foo.rs") == "");
   std::cout << "  [PASS] detect_language\n";
@@ -1164,6 +1392,10 @@ int main() {
   test_js_extractor();
   test_js_call_extraction();
   test_js_member_call_extraction();
+  test_ts_extractor();
+  test_ts_call_extraction();
+  test_ts_member_call_extraction();
+  test_tsx_extractor();
   test_detect_language();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
