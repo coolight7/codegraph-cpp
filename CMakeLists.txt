@@ -48,6 +48,13 @@ add_library(ts_javascript STATIC
 target_include_directories(ts_javascript PUBLIC ${GRAMMAR_DIR}/tree-sitter-javascript/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_javascript PUBLIC tree_sitter)
 
+add_library(ts_dart STATIC
+    ${GRAMMAR_DIR}/tree-sitter-dart/src/parser.c
+    ${GRAMMAR_DIR}/tree-sitter-dart/src/scanner.c
+)
+target_include_directories(ts_dart PUBLIC ${GRAMMAR_DIR}/tree-sitter-dart/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_dart PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -85,6 +92,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_cpp
     ts_python
     ts_javascript
+    ts_dart
     pthread
 )
 

@@ -519,6 +519,150 @@ function useCalculator() {
   std::cout << "  [PASS] js_member_call_extraction\n";
 }
 
+void test_dart_extractor() {
+  DartExtractor extractor;
+  std::string source = R"(
+import 'dart:math';
+
+int add(int a, int b) {
+  return a + b;
+}
+
+class Calculator {
+  int multiply(int a, int b) {
+    return a * b;
+  }
+
+  String greet(String name) {
+    return 'Hello, $name';
+  }
+}
+
+mixin Loggable {
+  void log(String msg) {
+    print(msg);
+  }
+}
+
+enum Color { red, green, blue }
+)";
+
+  auto result = extractor.extract("/tmp/test.dart", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_add = false, found_calc = false, found_multiply = false,
+       found_greet = false, found_loggable = false, found_color = false,
+       found_log = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "Calculator")
+      found_calc = true;
+    if (n.name == "multiply")
+      found_multiply = true;
+    if (n.name == "greet")
+      found_greet = true;
+    if (n.name == "Loggable")
+      found_loggable = true;
+    if (n.name == "Color")
+      found_color = true;
+    if (n.name == "log")
+      found_log = true;
+  }
+  CHECK(found_add);
+  CHECK(found_calc);
+  CHECK(found_multiply);
+  CHECK(found_greet);
+  CHECK(found_loggable);
+  CHECK(found_color);
+  CHECK(found_log);
+
+  bool found_qualified_multiply = false;
+  for (auto &n : result.nodes) {
+    if (n.qualified_name == "Calculator.multiply")
+      found_qualified_multiply = true;
+  }
+  CHECK(found_qualified_multiply);
+
+  std::cout << "  [PASS] dart_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_dart_call_extraction() {
+  DartExtractor extractor;
+  std::string source = R"(
+void foo() {
+  bar();
+}
+
+void bar() {
+  foo();
+  baz(1, 2);
+}
+
+int baz(int a, int b) {
+  return a + b;
+}
+
+class Worker {
+  void doWork() {
+    foo();
+  }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.dart", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] dart_call_extraction\n";
+}
+
+void test_dart_member_call_extraction() {
+  DartExtractor extractor;
+  std::string source = R"(
+class Calculator {
+  int add(int a, int b) {
+    return a + b;
+  }
+
+  int compute() {
+    return add(1, 2) + add(3, 4);
+  }
+}
+
+void useCalculator() {
+  var calc = Calculator();
+  calc.compute();
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_member.dart", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_add_call = false, found_compute_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "add")
+      found_add_call = true;
+    if (ref.ref_name == "compute")
+      found_compute_call = true;
+  }
+  CHECK(found_add_call);
+  CHECK(found_compute_call);
+  std::cout << "  [PASS] dart_member_call_extraction\n";
+}
+
 void test_detect_language() {
   CHECK(detect_language("foo.cpp") == "cpp");
   CHECK(detect_language("foo.cc") == "cpp");

@@ -173,10 +173,41 @@ private:
 };
 
 /**
+ * Dart 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Dart 源代码，提取：
+ *   - 函数定义
+ *   - 方法定义
+ *   - 类/mixin/extension 定义
+ *   - 枚举定义
+ *   - import/export 语句
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 Dart 语言描述符通过 tree_sitter_dart() 获取。
+ */
+class DartExtractor : public LanguageExtractor {
+public:
+  DartExtractor();
+  ~DartExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "dart"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 const std::string &scope, ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
- * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"）
+ * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"）
  * @return 提取器实例，不支持的语言返回 nullptr
  */
 std::unique_ptr<LanguageExtractor>
@@ -186,7 +217,7 @@ create_extractor(const std::string &language);
  * 根据文件扩展名检测语言。
  *
  * @param file_path 文件路径
- * @return 语言标识（"cpp"/"python"/"javascript"/""）
+ * @return 语言标识（"cpp"/"python"/"javascript"/"dart"/""）
  */
 std::string detect_language(const std::string &file_path);
 
