@@ -194,6 +194,12 @@ add_library(ts_css STATIC
 target_include_directories(ts_css PUBLIC ${GRAMMAR_DIR}/tree-sitter-css/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_css PUBLIC tree_sitter)
 
+add_library(ts_zig STATIC
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-zig/src/parser.c
+)
+target_include_directories(ts_zig PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-zig/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_zig PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -232,6 +238,7 @@ add_library(codegraph_core STATIC
     src/extraction/xml_extractor.cpp
     src/extraction/html_extractor.cpp
     src/extraction/css_extractor.cpp
+    src/extraction/zig_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -274,6 +281,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_xml
     ts_html
     ts_css
+    ts_zig
     pthread
 )
 

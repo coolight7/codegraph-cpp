@@ -98,6 +98,9 @@ create_extractor(const std::string &language) {
   if (language == "css") {
     return std::make_unique<CssExtractor>();
   }
+  if (language == "zig") {
+    return std::make_unique<ZigExtractor>();
+  }
   return nullptr;
 }
 
@@ -166,6 +169,8 @@ std::string detect_language(const std::string &file_path) {
     return "html";
   if (ext == "css")
     return "css";
+  if (ext == "zig")
+    return "zig";
   return "";
 }
 

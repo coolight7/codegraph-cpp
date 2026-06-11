@@ -734,6 +734,36 @@ private:
 };
 
 /**
+ * Zig 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Zig 源代码，提取：
+ *   - 函数定义（function_declaration → name 字段）→ Function 类型节点
+ *   - 容器定义（assignment_statement → struct/enum/union_expression）→ Class
+ * 类型节点
+ *   - 导入声明（assignment_statement → build_in_call_expr @import）→ Import
+ * 类型节点
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 Zig 语言描述符通过 tree_sitter_zig() 获取。
+ */
+class ZigExtractor : public LanguageExtractor {
+public:
+  ZigExtractor();
+  ~ZigExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "zig"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

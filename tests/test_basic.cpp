@@ -2729,6 +2729,92 @@ void test_css_empty() {
   std::cout << "  [PASS] css_empty\n";
 }
 
+void test_zig_extractor() {
+  ZigExtractor extractor;
+  std::string source = R"(
+const std = @import("std");
+
+const Point = struct {
+    x: f32,
+    y: f32,
+};
+
+const Color = enum {
+    Red,
+    Green,
+    Blue,
+};
+
+const Error = union {
+    Io: std.fs.File.OpenError,
+    Parse: ParseError,
+};
+
+fn add(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+fn multiply(a: i32, b: i32) i32 {
+    const result = add(a, 0);
+    return result * b;
+}
+
+fn main() void {
+    const p = Point{ .x = 1.0, .y = 2.0 };
+    const c = Color.Red;
+    const sum = add(3, 4);
+    const prod = multiply(sum, 2);
+    std.debug.print("sum={}, prod={}", .{ sum, prod });
+}
+)";
+  auto result = extractor.extract("/tmp/test.zig", source);
+  CHECK(result.nodes.size() >= 6);
+
+  bool found_std = false, found_Point = false, found_Color = false;
+  bool found_Error = false, found_add = false, found_multiply = false;
+  bool found_main = false, found_p = false, found_sum = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "std")
+      found_std = true;
+    if (n.name == "Point")
+      found_Point = true;
+    if (n.name == "Color")
+      found_Color = true;
+    if (n.name == "Error")
+      found_Error = true;
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "multiply")
+      found_multiply = true;
+    if (n.name == "main")
+      found_main = true;
+    if (n.name == "p")
+      found_p = true;
+    if (n.name == "result")
+      found_sum = true;
+  }
+  CHECK(found_std);
+  CHECK(found_Point);
+  CHECK(found_Color);
+  CHECK(found_Error);
+  CHECK(found_add);
+  CHECK(found_multiply);
+  CHECK(found_main);
+
+  CHECK(result.unresolved.size() >= 2);
+
+  std::cout << "  [PASS] zig_extractor (" << result.nodes.size() << " nodes, "
+            << result.unresolved.size() << " refs)\n";
+}
+
+void test_zig_empty() {
+  ZigExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.zig", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] zig_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2859,6 +2945,8 @@ int main() {
   test_html_empty();
   test_css_extractor();
   test_css_empty();
+  test_zig_extractor();
+  test_zig_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
