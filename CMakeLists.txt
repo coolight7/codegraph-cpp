@@ -83,6 +83,13 @@ add_library(ts_markdown_inline STATIC
 target_include_directories(ts_markdown_inline PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-markdown/tree-sitter-markdown-inline/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_markdown_inline PUBLIC tree_sitter)
 
+add_library(ts_rust STATIC
+    ${GRAMMAR_DIR}/tree-sitter-rust/src/parser.c
+    ${GRAMMAR_DIR}/tree-sitter-rust/src/scanner.c
+)
+target_include_directories(ts_rust PUBLIC ${GRAMMAR_DIR}/tree-sitter-rust/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_rust PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -105,6 +112,7 @@ add_library(codegraph_core STATIC
     src/extraction/dart_extractor.cpp
     src/extraction/typescript_extractor.cpp
     src/extraction/markdown_extractor.cpp
+    src/extraction/rust_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -131,6 +139,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_tsx
     ts_markdown
     ts_markdown_inline
+    ts_rust
     pthread
 )
 

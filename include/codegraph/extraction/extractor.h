@@ -262,6 +262,36 @@ private:
 };
 
 /**
+ * Rust 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Rust 源代码，提取：
+ *   - 函数定义（fn）
+ *   - 结构体/枚举/trait/impl/mod 定义
+ *   - use/extern crate 声明
+ *   - 宏定义（macro_rules!）
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 Rust 语言描述符通过 tree_sitter_rust() 获取。
+ */
+class RustExtractor : public LanguageExtractor {
+public:
+  RustExtractor();
+  ~RustExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "rust"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * Markdown 语言提取器。
  *
  * 使用 tree-sitter 解析 Markdown 文档，提取：

@@ -50,6 +50,9 @@ create_extractor(const std::string &language) {
   if (language == "markdown" || language == "md" || language == "mdx") {
     return std::make_unique<MarkdownExtractor>();
   }
+  if (language == "rust" || language == "rs") {
+    return std::make_unique<RustExtractor>();
+  }
   return nullptr;
 }
 
@@ -86,6 +89,8 @@ std::string detect_language(const std::string &file_path) {
     return "tsx";
   if (ext == "md" || ext == "mdx" || ext == "markdown")
     return "markdown";
+  if (ext == "rs")
+    return "rust";
   return "";
 }
 

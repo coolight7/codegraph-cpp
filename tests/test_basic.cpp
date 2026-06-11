@@ -906,8 +906,8 @@ void test_detect_language() {
   CHECK(detect_language("foo.mts") == "typescript");
   CHECK(detect_language("foo.cts") == "typescript");
   CHECK(detect_language("foo.tsx") == "tsx");
+  CHECK(detect_language("foo.rs") == "rust");
   CHECK(detect_language("foo.txt") == "");
-  CHECK(detect_language("foo.rs") == "");
   CHECK(detect_language("foo.md") == "markdown");
   CHECK(detect_language("foo.mdx") == "markdown");
   CHECK(detect_language("foo.markdown") == "markdown");
@@ -1394,6 +1394,171 @@ void test_markdown_empty() {
   std::cout << "  [PASS] markdown_empty\n";
 }
 
+void test_rust_extractor() {
+  RustExtractor extractor;
+  std::string source = R"(
+use std::collections::HashMap;
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+struct Calculator {
+    value: i32,
+}
+
+impl Calculator {
+    fn new(value: i32) -> Self {
+        Calculator { value }
+    }
+
+    fn multiply(&self, a: i32, b: i32) -> i32 {
+        self.value * a * b
+    }
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+trait Greet {
+    fn greet(&self) -> String;
+}
+
+mod utils {
+    pub fn helper() -> i32 {
+        42
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.rs", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_add = false, found_calculator = false, found_multiply = false;
+  bool found_new = false, found_color = false, found_greet_trait = false;
+  bool found_utils = false, found_helper = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "Calculator")
+      found_calculator = true;
+    if (n.name == "multiply")
+      found_multiply = true;
+    if (n.name == "new")
+      found_new = true;
+    if (n.name == "Color")
+      found_color = true;
+    if (n.name == "Greet")
+      found_greet_trait = true;
+    if (n.name == "utils")
+      found_utils = true;
+    if (n.name == "helper")
+      found_helper = true;
+  }
+  CHECK(found_add);
+  CHECK(found_calculator);
+  CHECK(found_multiply);
+  CHECK(found_new);
+  CHECK(found_color);
+  CHECK(found_greet_trait);
+  CHECK(found_utils);
+  CHECK(found_helper);
+
+  std::cout << "  [PASS] rust_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_rust_call_extraction() {
+  RustExtractor extractor;
+  std::string source = R"(
+fn foo() {
+    bar();
+}
+
+fn bar() {
+    foo();
+    baz(1, 2);
+}
+
+fn baz(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+struct Worker;
+
+impl Worker {
+    fn do_work(&self) {
+        foo();
+        self.internal_work();
+    }
+
+    fn internal_work(&self) {
+        baz(1, 2);
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.rs", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  bool found_internal_work_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+    if (ref.ref_name == "internal_work")
+      found_internal_work_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  CHECK(found_internal_work_call);
+  std::cout << "  [PASS] rust_call_extraction\n";
+}
+
+void test_rust_member_call_extraction() {
+  RustExtractor extractor;
+  std::string source = R"(
+struct Calculator;
+
+impl Calculator {
+    fn add(&self, a: i32, b: i32) -> i32 {
+        a + b
+    }
+
+    fn compute(&self) -> i32 {
+        self.add(1, 2) + self.add(3, 4)
+    }
+}
+
+fn use_calculator() {
+    let calc = Calculator;
+    calc.compute();
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_member.rs", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_add_call = false, found_compute_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "add")
+      found_add_call = true;
+    if (ref.ref_name == "compute")
+      found_compute_call = true;
+  }
+  CHECK(found_add_call);
+  CHECK(found_compute_call);
+  std::cout << "  [PASS] rust_member_call_extraction\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -1480,6 +1645,9 @@ int main() {
   test_detect_language();
   test_markdown_extractor();
   test_markdown_empty();
+  test_rust_extractor();
+  test_rust_call_extraction();
+  test_rust_member_call_extraction();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
