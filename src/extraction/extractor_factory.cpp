@@ -59,6 +59,9 @@ create_extractor(const std::string &language) {
   if (language == "go") {
     return std::make_unique<GoExtractor>();
   }
+  if (language == "java") {
+    return std::make_unique<JavaExtractor>();
+  }
   return nullptr;
 }
 
@@ -101,6 +104,8 @@ std::string detect_language(const std::string &file_path) {
     return "bash";
   if (ext == "go")
     return "go";
+  if (ext == "java")
+    return "java";
   return "";
 }
 

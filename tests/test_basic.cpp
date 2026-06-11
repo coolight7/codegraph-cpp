@@ -914,6 +914,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.sh") == "bash");
   CHECK(detect_language("foo.bash") == "bash");
   CHECK(detect_language("foo.go") == "go");
+  CHECK(detect_language("foo.java") == "java");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -1777,6 +1778,102 @@ void test_go_empty() {
   std::cout << "  [PASS] go_empty\n";
 }
 
+void test_java_extractor() {
+  JavaExtractor extractor;
+  std::string source = R"(
+import java.util.List;
+
+class Calculator {
+    public int add(int a, int b) {
+        return a + b;
+    }
+
+    public int multiply(int a, int b) {
+        return a * b;
+    }
+
+    public void printResult(int value) {
+        System.out.println(value);
+    }
+}
+
+interface MathOperation {
+    int operate(int a, int b);
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.java", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_calculator = false, found_add = false, found_multiply = false;
+  bool found_print_result = false, found_math_op = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "Calculator")
+      found_calculator = true;
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "multiply")
+      found_multiply = true;
+    if (n.name == "printResult")
+      found_print_result = true;
+    if (n.name == "MathOperation")
+      found_math_op = true;
+  }
+  CHECK(found_calculator);
+  CHECK(found_add);
+  CHECK(found_multiply);
+  CHECK(found_print_result);
+  CHECK(found_math_op);
+
+  std::cout << "  [PASS] java_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_java_call_extraction() {
+  JavaExtractor extractor;
+  std::string source = R"(
+class Test {
+    void foo() {
+        bar();
+    }
+
+    void bar() {
+        foo();
+        baz(1, 2);
+    }
+
+    void baz(int a, int b) {
+        System.out.println(a + b);
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.java", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] java_call_extraction\n";
+}
+
+void test_java_empty() {
+  JavaExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.java", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] java_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -1873,6 +1970,9 @@ int main() {
   test_go_call_extraction();
   test_go_method_call_extraction();
   test_go_empty();
+  test_java_extractor();
+  test_java_call_extraction();
+  test_java_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

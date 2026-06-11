@@ -377,10 +377,40 @@ private:
 };
 
 /**
+ * Java 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Java 源代码，提取：
+ *   - 类定义（class）
+ *   - 接口定义（interface）
+ *   - 方法/构造函数定义
+ *   - import 声明
+ *   - 方法调用关系
+ *
+ * tree-sitter 的 Java 语言描述符通过 tree_sitter_java() 获取。
+ */
+class JavaExtractor : public LanguageExtractor {
+public:
+  JavaExtractor();
+  ~JavaExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "java"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
- * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"/"typescript"/"ts"/"tsx"/"markdown"/"md"/"bash"/"sh"/"go"）
+ * 语言标识（"c"/"cpp"/"cxx"/..."python"/"py"/.../"java"/..."go"）
  * @return 提取器实例，不支持的语言返回 nullptr
  */
 std::unique_ptr<LanguageExtractor>
