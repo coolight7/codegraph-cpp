@@ -104,6 +104,11 @@ create_extractor(const std::string &language) {
   if (language == "ruby" || language == "rb") {
     return std::make_unique<RubyExtractor>();
   }
+  if (language == "glsl" || language == "vert" || language == "frag" ||
+      language == "comp" || language == "geom" || language == "tesc" ||
+      language == "tese") {
+    return std::make_unique<GlslExtractor>();
+  }
   return nullptr;
 }
 
@@ -176,6 +181,9 @@ std::string detect_language(const std::string &file_path) {
     return "zig";
   if (ext == "rb")
     return "ruby";
+  if (ext == "glsl" || ext == "vert" || ext == "frag" || ext == "comp" ||
+      ext == "geom" || ext == "tesc" || ext == "tese")
+    return "glsl";
   return "";
 }
 

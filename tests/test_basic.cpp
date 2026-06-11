@@ -2927,6 +2927,97 @@ void test_ruby_empty() {
   std::cout << "  [PASS] ruby_empty\n";
 }
 
+void test_glsl_extractor() {
+  GlslExtractor extractor;
+  std::string source = R"(
+#version 450
+
+#include "common.glsl"
+
+layout(location = 0) in vec3 in_position;
+layout(location = 1) in vec2 in_uv;
+
+layout(location = 0) out vec2 uv;
+
+uniform mat4 proj;
+uniform mat4 view;
+
+struct Light {
+    vec3 position;
+    float intensity;
+};
+
+vec3 lambertian(vec3 normal, vec3 light_dir, vec3 color) {
+    float diff = max(dot(normal, light_dir), 0.0);
+    return diff * color;
+}
+
+void main() {
+    uv = in_uv;
+    vec4 pos = vec4(in_position, 1.0);
+    gl_Position = proj * view * pos;
+    calculate_lighting();
+}
+
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+)";
+  auto result = extractor.extract("/tmp/test.glsl", source);
+  CHECK(result.nodes.size() >= 8);
+
+  bool found_Light = false, found_lambertian = false, found_main = false;
+  bool found_random = false, found_common = false;
+  bool found_proj = false, found_view = false;
+  bool found_in_position = false;
+
+  for (auto &n : result.nodes) {
+    if (n.name == "Light")
+      found_Light = true;
+    if (n.name == "lambertian")
+      found_lambertian = true;
+    if (n.name == "main")
+      found_main = true;
+    if (n.name == "random")
+      found_random = true;
+    if (n.name == "common.glsl" || n.name.find("common") != std::string::npos)
+      found_common = true;
+    if (n.name == "proj")
+      found_proj = true;
+    if (n.name == "view")
+      found_view = true;
+    if (n.name == "in_position")
+      found_in_position = true;
+  }
+
+  CHECK(found_Light);
+  CHECK(found_lambertian);
+  CHECK(found_main);
+  CHECK(found_random);
+  CHECK(found_common);
+  CHECK(found_proj);
+  CHECK(found_view);
+  CHECK(found_in_position);
+
+  bool found_calculate_lighting = false;
+  for (auto &r : result.unresolved) {
+    if (r.ref_name == "calculate_lighting")
+      found_calculate_lighting = true;
+  }
+  CHECK(found_calculate_lighting);
+
+  std::cout << "  [PASS] glsl_extractor (" << result.nodes.size() << " nodes, "
+            << result.unresolved.size() << " refs)\n";
+}
+
+void test_glsl_empty() {
+  GlslExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.glsl", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] glsl_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -3061,6 +3152,8 @@ int main() {
   test_zig_empty();
   test_ruby_extractor();
   test_ruby_empty();
+  test_glsl_extractor();
+  test_glsl_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

@@ -795,6 +795,35 @@ private:
 };
 
 /**
+ * GLSL 语言提取器。
+ *
+ * 使用 tree-sitter 解析 GLSL(OpenGL Shading Language) 源代码，提取：
+ *   - 函数定义（function_definition → declarator 字段获取名称）
+ *   - 结构体定义（struct_specifier → name 字段）
+ *   - 变量声明（declaration → declarator 字段）
+ *   - 预处理包含指令（#include → preproc_include）
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 GLSL 语言描述符通过 tree_sitter_glsl() 获取。
+ */
+class GlslExtractor : public LanguageExtractor {
+public:
+  GlslExtractor();
+  ~GlslExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "glsl"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

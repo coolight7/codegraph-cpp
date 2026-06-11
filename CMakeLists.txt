@@ -207,6 +207,12 @@ add_library(ts_ruby STATIC
 target_include_directories(ts_ruby PUBLIC ${GRAMMAR_DIR}/tree-sitter-ruby/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_ruby PUBLIC tree_sitter)
 
+add_library(ts_glsl STATIC
+    ${GRAMMAR_DIR}/tree-sitter-glsl/src/parser.c
+)
+target_include_directories(ts_glsl PUBLIC ${GRAMMAR_DIR}/tree-sitter-glsl/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_glsl PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -247,6 +253,7 @@ add_library(codegraph_core STATIC
     src/extraction/css_extractor.cpp
     src/extraction/zig_extractor.cpp
     src/extraction/ruby_extractor.cpp
+    src/extraction/glsl_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -291,6 +298,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_css
     ts_zig
     ts_ruby
+    ts_glsl
     pthread
 )
 
