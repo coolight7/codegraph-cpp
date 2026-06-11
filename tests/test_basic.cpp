@@ -919,6 +919,8 @@ void test_detect_language() {
   CHECK(detect_language("foo.kts") == "kotlin");
   CHECK(detect_language("foo.php") == "php");
   CHECK(detect_language("foo.swift") == "swift");
+  CHECK(detect_language("foo.m") == "objc");
+  CHECK(detect_language("foo.mm") == "objc");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2169,6 +2171,122 @@ void test_swift_empty() {
   std::cout << "  [PASS] swift_empty\n";
 }
 
+void test_objc_extractor() {
+  ObjcExtractor extractor;
+  std::string source = R"(
+#import <Foundation/Foundation.h>
+
+@interface Calculator : NSObject
+
+- (int)add:(int)a to:(int)b;
+- (int)multiply:(int)a with:(int)b;
+
+@end
+
+@implementation Calculator
+
+- (int)add:(int)a to:(int)b {
+    return a + b;
+}
+
+- (int)multiply:(int)a with:(int)b {
+    return a * b;
+}
+
+- (void)printResult:(int)value {
+    NSLog(@"%d", value);
+}
+
+@end
+
+@protocol MathOperation
+- (int)operate:(int)a with:(int)b;
+@end
+)";
+
+  auto result = extractor.extract("/tmp/test.m", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_calc_interface = false, found_calc_impl = false;
+  bool found_add = false, found_multiply = false;
+  bool found_print_result = false, found_math_op = false;
+  int calc_count = 0;
+  for (auto &n : result.nodes) {
+    if (n.name == "Calculator") {
+      calc_count++;
+      if (n.kind == NodeKind::Class) {
+        found_calc_interface = true;
+        found_calc_impl = true;
+      }
+    }
+    if (n.name == "add:to:")
+      found_add = true;
+    if (n.name == "multiply:with:")
+      found_multiply = true;
+    if (n.name == "printResult:")
+      found_print_result = true;
+    if (n.name == "MathOperation")
+      found_math_op = true;
+  }
+  CHECK(found_calc_interface);
+  CHECK(found_calc_impl);
+  CHECK(calc_count >= 2);
+  CHECK(found_add);
+  CHECK(found_multiply);
+  CHECK(found_print_result);
+  CHECK(found_math_op);
+
+  std::cout << "  [PASS] objc_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_objc_call_extraction() {
+  ObjcExtractor extractor;
+  std::string source = R"(
+@implementation Test
+
+- (void)foo {
+    [self bar];
+}
+
+- (void)bar {
+    [self foo];
+    [self bazWithA:1 b:2];
+}
+
+- (void)bazWithA:(int)a b:(int)b {
+    NSLog(@"%d", a + b);
+}
+
+@end
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.m", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "bazWithA:b:")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] objc_call_extraction\n";
+}
+
+void test_objc_empty() {
+  ObjcExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.m", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] objc_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2277,6 +2395,9 @@ int main() {
   test_swift_extractor();
   test_swift_call_extraction();
   test_swift_empty();
+  test_objc_extractor();
+  test_objc_call_extraction();
+  test_objc_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

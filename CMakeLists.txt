@@ -130,6 +130,12 @@ add_library(ts_swift STATIC
 target_include_directories(ts_swift PUBLIC ${GRAMMAR_DIR}/tree-sitter-swift/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_swift PUBLIC tree_sitter)
 
+add_library(ts_objc STATIC
+    ${GRAMMAR_DIR}/tree-sitter-objc/src/parser.c
+)
+target_include_directories(ts_objc PUBLIC ${GRAMMAR_DIR}/tree-sitter-objc/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_objc PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -159,6 +165,7 @@ add_library(codegraph_core STATIC
     src/extraction/kotlin_extractor.cpp
     src/extraction/php_extractor.cpp
     src/extraction/swift_extractor.cpp
+    src/extraction/objc_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -192,6 +199,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_kotlin
     ts_php
     ts_swift
+    ts_objc
     pthread
 )
 

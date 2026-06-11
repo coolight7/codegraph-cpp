@@ -496,6 +496,36 @@ private:
 };
 
 /**
+ * Objective-C 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Objective-C 源代码，提取：
+ *   - 类接口/实现（@interface / @implementation）
+ *   - 协议定义（@protocol）
+ *   - 方法定义（- / + method）
+ *   - #import 声明
+ *   - 方法调用关系（[obj method]）
+ *
+ * tree-sitter 的 Objective-C 语言描述符通过 tree_sitter_objc() 获取。
+ */
+class ObjcExtractor : public LanguageExtractor {
+public:
+  ObjcExtractor();
+  ~ObjcExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "objc"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
