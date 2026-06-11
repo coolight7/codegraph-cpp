@@ -68,6 +68,9 @@ create_extractor(const std::string &language) {
   if (language == "php") {
     return std::make_unique<PhpExtractor>();
   }
+  if (language == "swift") {
+    return std::make_unique<SwiftExtractor>();
+  }
   return nullptr;
 }
 
@@ -116,6 +119,8 @@ std::string detect_language(const std::string &file_path) {
     return "kotlin";
   if (ext == "php")
     return "php";
+  if (ext == "swift")
+    return "swift";
   return "";
 }
 

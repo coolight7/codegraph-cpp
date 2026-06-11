@@ -466,6 +466,36 @@ private:
 };
 
 /**
+ * Swift 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Swift 源代码，提取：
+ *   - 类/结构体/actor 定义（class / struct / actor）
+ *   - 协议定义（protocol）
+ *   - 函数定义（func name）
+ *   - import 声明
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 Swift 语言描述符通过 tree_sitter_swift() 获取。
+ */
+class SwiftExtractor : public LanguageExtractor {
+public:
+  SwiftExtractor();
+  ~SwiftExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "swift"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

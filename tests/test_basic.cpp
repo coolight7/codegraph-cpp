@@ -918,6 +918,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.kt") == "kotlin");
   CHECK(detect_language("foo.kts") == "kotlin");
   CHECK(detect_language("foo.php") == "php");
+  CHECK(detect_language("foo.swift") == "swift");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2072,6 +2073,102 @@ void test_php_empty() {
   std::cout << "  [PASS] php_empty\n";
 }
 
+void test_swift_extractor() {
+  SwiftExtractor extractor;
+  std::string source = R"(
+import Foundation
+
+class Calculator {
+    func add(_ a: Int, _ b: Int) -> Int {
+        return a + b
+    }
+
+    func multiply(_ a: Int, _ b: Int) -> Int {
+        return a * b
+    }
+
+    func printResult(_ value: Int) {
+        print(value)
+    }
+}
+
+protocol MathOperation {
+    func operate(_ a: Int, _ b: Int) -> Int
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.swift", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_calculator = false, found_add = false, found_multiply = false;
+  bool found_print_result = false, found_math_op = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "Calculator")
+      found_calculator = true;
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "multiply")
+      found_multiply = true;
+    if (n.name == "printResult")
+      found_print_result = true;
+    if (n.name == "MathOperation")
+      found_math_op = true;
+  }
+  CHECK(found_calculator);
+  CHECK(found_add);
+  CHECK(found_multiply);
+  CHECK(found_print_result);
+  CHECK(found_math_op);
+
+  std::cout << "  [PASS] swift_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_swift_call_extraction() {
+  SwiftExtractor extractor;
+  std::string source = R"(
+class Test {
+    func foo() {
+        bar()
+    }
+
+    func bar() {
+        foo()
+        baz(1, 2)
+    }
+
+    func baz(_ a: Int, _ b: Int) {
+        print(a + b)
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.swift", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] swift_call_extraction\n";
+}
+
+void test_swift_empty() {
+  SwiftExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.swift", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] swift_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2177,6 +2274,9 @@ int main() {
   test_php_extractor();
   test_php_call_extraction();
   test_php_empty();
+  test_swift_extractor();
+  test_swift_call_extraction();
+  test_swift_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
