@@ -100,6 +100,12 @@ add_library(codegraph_core STATIC
     src/db/database.cpp
     src/extraction/extractor.cpp
     src/extraction/cpp_extractor.cpp
+    src/extraction/python_extractor.cpp
+    src/extraction/javascript_extractor.cpp
+    src/extraction/dart_extractor.cpp
+    src/extraction/typescript_extractor.cpp
+    src/extraction/markdown_extractor.cpp
+    src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
     src/context/context_builder.cpp
