@@ -74,6 +74,9 @@ create_extractor(const std::string &language) {
   if (language == "objc" || language == "objective-c") {
     return std::make_unique<ObjcExtractor>();
   }
+  if (language == "csharp" || language == "cs" || language == "c#") {
+    return std::make_unique<CSharpExtractor>();
+  }
   return nullptr;
 }
 
@@ -126,6 +129,8 @@ std::string detect_language(const std::string &file_path) {
     return "swift";
   if (ext == "m" || ext == "mm")
     return "objc";
+  if (ext == "cs")
+    return "csharp";
   return "";
 }
 

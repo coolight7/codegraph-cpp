@@ -526,6 +526,36 @@ private:
 };
 
 /**
+ * C# 语言提取器。
+ *
+ * 使用 tree-sitter 解析 C# 源代码，提取：
+ *   - 类/结构体/接口（class / struct / interface）
+ *   - 命名空间（namespace）
+ *   - 方法/构造函数
+ *   - using 指令
+ *   - 函数调用关系
+ *
+ * tree-sitter 的 C# 语言描述符通过 tree_sitter_c_sharp() 获取。
+ */
+class CSharpExtractor : public LanguageExtractor {
+public:
+  CSharpExtractor();
+  ~CSharpExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "csharp"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

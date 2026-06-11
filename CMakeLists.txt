@@ -136,6 +136,13 @@ add_library(ts_objc STATIC
 target_include_directories(ts_objc PUBLIC ${GRAMMAR_DIR}/tree-sitter-objc/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_objc PUBLIC tree_sitter)
 
+add_library(ts_csharp STATIC
+    ${GRAMMAR_DIR}/tree-sitter-c-sharp/src/parser.c
+    ${GRAMMAR_DIR}/tree-sitter-c-sharp/src/scanner.c
+)
+target_include_directories(ts_csharp PUBLIC ${GRAMMAR_DIR}/tree-sitter-c-sharp/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_csharp PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -166,6 +173,7 @@ add_library(codegraph_core STATIC
     src/extraction/php_extractor.cpp
     src/extraction/swift_extractor.cpp
     src/extraction/objc_extractor.cpp
+    src/extraction/csharp_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -200,6 +208,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_php
     ts_swift
     ts_objc
+    ts_csharp
     pthread
 )
 

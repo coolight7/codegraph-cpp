@@ -921,6 +921,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.swift") == "swift");
   CHECK(detect_language("foo.m") == "objc");
   CHECK(detect_language("foo.mm") == "objc");
+  CHECK(detect_language("foo.cs") == "csharp");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2287,6 +2288,114 @@ void test_objc_empty() {
   std::cout << "  [PASS] objc_empty\n";
 }
 
+void test_csharp_extractor() {
+  CSharpExtractor extractor;
+  std::string source = R"(
+using System;
+
+namespace CalculatorApp {
+    class Calculator {
+        public int Add(int a, int b) {
+            return a + b;
+        }
+
+        public int Multiply(int a, int b) {
+            return a * b;
+        }
+
+        public Calculator() {
+        }
+
+        public void PrintResult(int value) {
+            Console.WriteLine(value);
+        }
+    }
+
+    interface IMathOperation {
+        int Operate(int a, int b);
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.cs", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_calc = false, found_add = false, found_multiply = false;
+  bool found_ctor = false, found_print = false, found_math_op = false;
+  bool found_ns = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "Calculator")
+      found_calc = true;
+    if (n.name == "Add")
+      found_add = true;
+    if (n.name == "Multiply")
+      found_multiply = true;
+    if (n.name == "PrintResult")
+      found_print = true;
+    if (n.name == "IMathOperation")
+      found_math_op = true;
+    if (n.name == "CalculatorApp")
+      found_ns = true;
+    if (n.name == "Calculator" && n.kind == NodeKind::Method)
+      found_ctor = true;
+  }
+  CHECK(found_calc);
+  CHECK(found_add);
+  CHECK(found_multiply);
+  CHECK(found_print);
+  CHECK(found_math_op);
+  CHECK(found_ns);
+  CHECK(found_ctor);
+
+  std::cout << "  [PASS] csharp_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_csharp_call_extraction() {
+  CSharpExtractor extractor;
+  std::string source = R"(
+class Test {
+    public void Foo() {
+        Bar();
+    }
+
+    public void Bar() {
+        Foo();
+        Baz(1, 2);
+    }
+
+    public void Baz(int a, int b) {
+        Console.WriteLine(a + b);
+    }
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.cs", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "Bar")
+      found_bar_call = true;
+    if (ref.ref_name == "Foo")
+      found_foo_call = true;
+    if (ref.ref_name == "Baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] csharp_call_extraction\n";
+}
+
+void test_csharp_empty() {
+  CSharpExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.cs", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] csharp_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2398,6 +2507,9 @@ int main() {
   test_objc_extractor();
   test_objc_call_extraction();
   test_objc_empty();
+  test_csharp_extractor();
+  test_csharp_call_extraction();
+  test_csharp_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
