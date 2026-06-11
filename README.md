@@ -363,12 +363,38 @@ codegraph search-semantic "发送RPC请求"
 
 ## 支持的语言
 
-| 语言 | 扩展名 | 状态 |
-|------|--------|------|
-| C++ | .cpp .cc .cxx .h .hpp .hxx .hh | 完整支持 |
-| Python | .py | 完整支持（含调用边） |
+CodeGraph 使用 tree-sitter 解析，目前支持以下语言：
 
-扩展其他语言：实现 `LanguageExtractor` 接口，注册到 `create_extractor()` 工厂函数。
+| 语言 | 文件扩展名 | 提取内容 |
+|------|------------|----------|
+| **C/C++** | .c .cpp .cc .cxx .h .hpp .hxx .hh | 函数/方法、类/结构体/枚举、命名空间、#include 导入、函数调用 |
+| **Python** | .py .pyi | 函数、类、import 语句、函数调用 |
+| **JavaScript** | .js .mjs .jsx .cjs | 函数、箭头函数、类、import/export、函数调用 |
+| **Dart** | .dart | 函数、方法、类/mixin/extension、枚举、import/export、函数调用 |
+| **TypeScript** | .ts .mts .cts | 函数、箭头函数、类、接口、枚举、类型别名、import/export、函数调用 |
+| **TSX** | .tsx | TypeScript + JSX，同 TypeScript |
+| **Rust** | .rs | 函数、结构体/枚举/trait/impl/mod、use 声明、宏定义、函数调用 |
+| **Go** | .go | 函数、方法、类型定义、import、函数调用 |
+| **Java** | .java | 类、接口、方法/构造函数、import、方法调用 |
+| **Kotlin** | .kt .kts | 类/接口、函数、import、函数调用 |
+| **PHP** | .php | 类/接口、函数、方法、namespace/use、函数调用 |
+| **Swift** | .swift | 类/结构体/actor、协议、函数、import、函数调用 |
+| **Objective-C** | .m .mm | 类接口/实现、协议、方法、#import、方法调用 |
+| **C#** | .cs | 类/结构体/接口、命名空间、方法/构造函数、using、函数调用 |
+| **Bash** | .sh .bash | 函数定义、命令调用 |
+| **Ruby** | .rb | 方法定义、类/模块、require/include、函数调用 |
+| **Lua** | .lua | 函数定义、函数调用 |
+| **SQL** | .sql | 表/视图/函数/存储过程定义、函数调用 |
+| **Zig** | .zig | 函数定义、容器定义、@import、函数调用 |
+| **GLSL** | .glsl .vert .frag .comp .geom .tesc .tese | 函数、结构体、变量声明、#include、函数调用 |
+| **Markdown** | .md .mdx | 标题、链接引用、代码块 |
+| **JSON** | .json | 键值对 |
+| **YAML** | .yaml .yml | 顶层映射键 |
+| **XML** | .xml | 元素标签 |
+| **HTML** | .html .htm | 标签名 |
+| **CSS** | .css | 规则集选择器、@ 规则 |
+
+扩展其他语言：实现 `LanguageExtractor` 接口，在 [extractor_factory.cpp](/src/extraction/extractor_factory.cpp) 中注册到工厂函数。
 
 ## 依赖
 
@@ -385,4 +411,4 @@ cd build
 ctest --output-on-failure
 ```
 
-当前 `test_basic` 覆盖数据库 CRUD、FTS qualified-name 查询、C++/Python 抽取、成员调用抽取、上下文建边、CLI 增量索引、同名函数解析、Tarjan SCC、路径查找、图指标和 impact-chain。
+当前 `test_basic` 覆盖数据库 CRUD、FTS qualified-name 查询、符号抽取、成员调用抽取、上下文建边、CLI 增量索引、同名函数解析、Tarjan SCC、路径查找、图指标和 impact-chain。
