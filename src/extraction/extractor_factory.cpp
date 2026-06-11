@@ -56,6 +56,9 @@ create_extractor(const std::string &language) {
   if (language == "bash" || language == "sh") {
     return std::make_unique<BashExtractor>();
   }
+  if (language == "go") {
+    return std::make_unique<GoExtractor>();
+  }
   return nullptr;
 }
 
@@ -96,6 +99,8 @@ std::string detect_language(const std::string &file_path) {
     return "rust";
   if (ext == "sh" || ext == "bash")
     return "bash";
+  if (ext == "go")
+    return "go";
   return "";
 }
 

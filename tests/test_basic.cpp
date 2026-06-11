@@ -913,6 +913,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.markdown") == "markdown");
   CHECK(detect_language("foo.sh") == "bash");
   CHECK(detect_language("foo.bash") == "bash");
+  CHECK(detect_language("foo.go") == "go");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -1645,6 +1646,137 @@ void test_bash_empty() {
   std::cout << "  [PASS] bash_empty\n";
 }
 
+void test_go_extractor() {
+  GoExtractor extractor;
+  std::string source = R"(
+package main
+
+import "fmt"
+
+func add(a int, b int) int {
+    return a + b
+}
+
+type Calculator struct {
+    value int
+}
+
+func (c *Calculator) Multiply(a int, b int) int {
+    return c.value * a * b
+}
+
+func (c Calculator) Greet(name string) string {
+    return "Hello, " + name
+}
+
+func main() {
+    result := add(1, 2)
+    fmt.Println(result)
+
+    calc := Calculator{value: 10}
+    calc.Multiply(3, 4)
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.go", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_add = false, found_calculator = false;
+  bool found_multiply = false, found_greet = false, found_main = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "Calculator")
+      found_calculator = true;
+    if (n.name == "Multiply")
+      found_multiply = true;
+    if (n.name == "Greet")
+      found_greet = true;
+    if (n.name == "main")
+      found_main = true;
+  }
+  CHECK(found_add);
+  CHECK(found_calculator);
+  CHECK(found_multiply);
+  CHECK(found_greet);
+  CHECK(found_main);
+
+  std::cout << "  [PASS] go_extractor (" << result.nodes.size() << " nodes)\n";
+}
+
+void test_go_call_extraction() {
+  GoExtractor extractor;
+  std::string source = R"(
+package main
+
+func foo() {
+    bar()
+}
+
+func bar() {
+    foo()
+    baz(1, 2)
+}
+
+func baz(a int, b int) int {
+    return a + b
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.go", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] go_call_extraction\n";
+}
+
+void test_go_method_call_extraction() {
+  GoExtractor extractor;
+  std::string source = R"(
+package main
+
+type Calculator struct{}
+
+func (c *Calculator) Add(a int, b int) int {
+    return a + b
+}
+
+func (c *Calculator) Compute() int {
+    return c.Add(1, 2) + c.Add(3, 4)
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_method.go", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_add_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "Add")
+      found_add_call = true;
+  }
+  CHECK(found_add_call);
+  std::cout << "  [PASS] go_method_call_extraction\n";
+}
+
+void test_go_empty() {
+  GoExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.go", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] go_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -1737,6 +1869,10 @@ int main() {
   test_bash_extractor();
   test_bash_call_extraction();
   test_bash_empty();
+  test_go_extractor();
+  test_go_call_extraction();
+  test_go_method_call_extraction();
+  test_go_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
