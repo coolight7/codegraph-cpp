@@ -708,6 +708,32 @@ private:
 };
 
 /**
+ * CSS 语言提取器。
+ *
+ * 使用 tree-sitter 解析 CSS 样式表，提取：
+ *   - 规则集选择器（rule_set → selectors）→ Class 类型节点
+ *   - @ 规则（at_rule，如 @media、@keyframes、@import、@font-face）→ Variable
+ * 类型节点
+ *
+ * tree-sitter 的 CSS 语言描述符通过 tree_sitter_css() 获取。
+ */
+class CssExtractor : public LanguageExtractor {
+public:
+  CssExtractor();
+  ~CssExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "css"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, ExtractionResult &result);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

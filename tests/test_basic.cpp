@@ -2660,6 +2660,75 @@ void test_html_empty() {
   std::cout << "  [PASS] html_empty\n";
 }
 
+void test_css_extractor() {
+  CssExtractor extractor;
+  std::string source = R"(
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3 {
+  color: #333;
+}
+
+.header {
+  background: #f5f5f5;
+}
+
+#main-content {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .header {
+    font-size: 14px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+)";
+  auto result = extractor.extract("/tmp/test.css", source);
+  CHECK(result.nodes.size() >= 6);
+
+  bool found_body = false, found_h1_h2_h3 = false, found_header = false;
+  bool found_main_content = false, found_media = false, found_keyframes = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "body")
+      found_body = true;
+    if (n.name == "h1, h2, h3")
+      found_h1_h2_h3 = true;
+    if (n.name == ".header")
+      found_header = true;
+    if (n.name == "#main-content")
+      found_main_content = true;
+    if (n.name == "@media")
+      found_media = true;
+    if (n.name == "@keyframes")
+      found_keyframes = true;
+  }
+  CHECK(found_body);
+  CHECK(found_h1_h2_h3);
+  CHECK(found_header);
+  CHECK(found_main_content);
+  CHECK(found_media);
+  CHECK(found_keyframes);
+
+  std::cout << "  [PASS] css_extractor (" << result.nodes.size() << " nodes)\n";
+}
+
+void test_css_empty() {
+  CssExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.css", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] css_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2788,6 +2857,8 @@ int main() {
   test_xml_empty();
   test_html_extractor();
   test_html_empty();
+  test_css_extractor();
+  test_css_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
