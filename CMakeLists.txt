@@ -49,10 +49,10 @@ target_include_directories(ts_javascript PUBLIC ${GRAMMAR_DIR}/tree-sitter-javas
 target_link_libraries(ts_javascript PUBLIC tree_sitter)
 
 add_library(ts_dart STATIC
-    ${GRAMMAR_DIR}/tree-sitter-dart/src/parser.c
-    ${GRAMMAR_DIR}/tree-sitter-dart/src/scanner.c
+    ${GRAMMAR_DIR}/@ast-grep/lang-dart/src/parser.c
+    ${GRAMMAR_DIR}/@ast-grep/lang-dart/src/scanner.c
 )
-target_include_directories(ts_dart PUBLIC ${GRAMMAR_DIR}/tree-sitter-dart/src ${TS_DIR}/lib/include)
+target_include_directories(ts_dart PUBLIC ${GRAMMAR_DIR}/@ast-grep/lang-dart/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_dart PUBLIC tree_sitter)
 
 add_library(ts_typescript STATIC
@@ -110,10 +110,10 @@ target_include_directories(ts_java PUBLIC ${GRAMMAR_DIR}/tree-sitter-java/src ${
 target_link_libraries(ts_java PUBLIC tree_sitter)
 
 add_library(ts_kotlin STATIC
-    ${GRAMMAR_DIR}/tree-sitter-kotlin/src/parser.c
-    ${GRAMMAR_DIR}/tree-sitter-kotlin/src/scanner.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-kotlin/src/parser.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-kotlin/src/scanner.c
 )
-target_include_directories(ts_kotlin PUBLIC ${GRAMMAR_DIR}/tree-sitter-kotlin/src ${TS_DIR}/lib/include)
+target_include_directories(ts_kotlin PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-kotlin/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_kotlin PUBLIC tree_sitter)
 
 add_library(ts_php STATIC
