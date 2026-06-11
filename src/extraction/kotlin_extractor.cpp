@@ -42,21 +42,19 @@ static NodeKind classify_kotlin_node(const char *type_name) {
 }
 
 static std::string get_kotlin_name(TSNode node, const std::string &source) {
-  const char *node_type = ts_node_type(node);
-  const char *target_type = nullptr;
-
-  if (strcmp(node_type, "function_declaration") == 0)
-    target_type = "simple_identifier";
-  else if (strcmp(node_type, "class_declaration") == 0)
-    target_type = "type_identifier";
-
-  if (!target_type)
-    return "";
+  TSNode name_node = ts_node_child_by_field_name(node, "name", 4);
+  if (!ts_node_is_null(name_node)) {
+    uint32_t start = ts_node_start_byte(name_node);
+    uint32_t end = ts_node_end_byte(name_node);
+    if (start >= source.size())
+      return "";
+    return source.substr(start, std::min(end, (uint32_t)source.size()) - start);
+  }
 
   uint32_t count = ts_node_child_count(node);
   for (uint32_t i = 0; i < count; i++) {
     TSNode child = ts_node_child(node, i);
-    if (strcmp(ts_node_type(child), target_type) == 0) {
+    if (strcmp(ts_node_type(child), "identifier") == 0) {
       uint32_t start = ts_node_start_byte(child);
       uint32_t end = ts_node_end_byte(child);
       if (start >= source.size())
@@ -126,7 +124,7 @@ void KotlinExtractor::walk_tree(TSNode node, const std::string &source,
         for (uint32_t j = 0; j < cnt; j++) {
           TSNode child = ts_node_child(n, j);
           const char *ct = ts_node_type(child);
-          if (strcmp(ct, "simple_identifier") == 0) {
+          if (strcmp(ct, "identifier") == 0) {
             std::string callee = get_node_text(child, source);
             if (!callee.empty()) {
               UnresolvedRef ref;
