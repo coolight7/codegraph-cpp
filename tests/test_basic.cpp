@@ -922,6 +922,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.m") == "objc");
   CHECK(detect_language("foo.mm") == "objc");
   CHECK(detect_language("foo.cs") == "csharp");
+  CHECK(detect_language("foo.sql") == "sql");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2396,6 +2397,81 @@ void test_csharp_empty() {
   std::cout << "  [PASS] csharp_empty\n";
 }
 
+void test_sql_extractor() {
+  SqlExtractor extractor;
+  std::string source = R"(
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE
+);
+
+CREATE VIEW active_users AS
+SELECT * FROM users WHERE active = 1;
+
+CREATE FUNCTION calculate_tax(amount DECIMAL) RETURNS DECIMAL
+LANGUAGE SQL
+AS $$
+    SELECT amount * 0.08;
+$$;
+)";
+
+  auto result = extractor.extract("/tmp/test.sql", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_users = false, found_active_users = false;
+  bool found_calc_tax = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "users")
+      found_users = true;
+    if (n.name == "active_users")
+      found_active_users = true;
+    if (n.name == "calculate_tax")
+      found_calc_tax = true;
+  }
+  CHECK(found_users);
+  CHECK(found_active_users);
+  CHECK(found_calc_tax);
+
+  std::cout << "  [PASS] sql_extractor (" << result.nodes.size() << " nodes)\n";
+}
+
+void test_sql_call_extraction() {
+  SqlExtractor extractor;
+  std::string source = R"(
+CREATE FUNCTION my_sum(a INTEGER, b INTEGER) RETURNS INTEGER
+LANGUAGE SQL
+AS $$
+    SELECT a + b;
+$$;
+
+CREATE FUNCTION call_others() RETURNS INTEGER
+LANGUAGE SQL
+AS $$
+    SELECT my_sum(1, 2) + my_sum(3, 4);
+$$;
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.sql", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_my_sum = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "my_sum")
+      found_my_sum = true;
+  }
+  CHECK(found_my_sum);
+  std::cout << "  [PASS] sql_call_extraction\n";
+}
+
+void test_sql_empty() {
+  SqlExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.sql", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] sql_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2510,6 +2586,9 @@ int main() {
   test_csharp_extractor();
   test_csharp_call_extraction();
   test_csharp_empty();
+  test_sql_extractor();
+  test_sql_call_extraction();
+  test_sql_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

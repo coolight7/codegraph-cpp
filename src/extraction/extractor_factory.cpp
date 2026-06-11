@@ -77,6 +77,9 @@ create_extractor(const std::string &language) {
   if (language == "csharp" || language == "cs" || language == "c#") {
     return std::make_unique<CSharpExtractor>();
   }
+  if (language == "sql") {
+    return std::make_unique<SqlExtractor>();
+  }
   return nullptr;
 }
 
@@ -131,6 +134,8 @@ std::string detect_language(const std::string &file_path) {
     return "objc";
   if (ext == "cs")
     return "csharp";
+  if (ext == "sql")
+    return "sql";
   return "";
 }
 

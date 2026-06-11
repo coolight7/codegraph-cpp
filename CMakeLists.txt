@@ -143,6 +143,13 @@ add_library(ts_csharp STATIC
 target_include_directories(ts_csharp PUBLIC ${GRAMMAR_DIR}/tree-sitter-c-sharp/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_csharp PUBLIC tree_sitter)
 
+add_library(ts_sql STATIC
+    ${GRAMMAR_DIR}/@derekstride/tree-sitter-sql/src/parser.c
+    ${GRAMMAR_DIR}/@derekstride/tree-sitter-sql/src/scanner.c
+)
+target_include_directories(ts_sql PUBLIC ${GRAMMAR_DIR}/@derekstride/tree-sitter-sql/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_sql PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -174,6 +181,7 @@ add_library(codegraph_core STATIC
     src/extraction/swift_extractor.cpp
     src/extraction/objc_extractor.cpp
     src/extraction/csharp_extractor.cpp
+    src/extraction/sql_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -209,6 +217,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_swift
     ts_objc
     ts_csharp
+    ts_sql
     pthread
 )
 
