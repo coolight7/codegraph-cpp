@@ -2815,6 +2815,118 @@ void test_zig_empty() {
   std::cout << "  [PASS] zig_empty\n";
 }
 
+void test_ruby_extractor() {
+  RubyExtractor extractor;
+  std::string source = R"(
+require "json"
+
+module Calculator
+  PI = 3.14159
+
+  def add(a, b)
+    a + b
+  end
+
+  def self.version
+    "1.0.0"
+  end
+end
+
+class Animal
+  def speak
+    puts "hello"
+  end
+
+  def eat(food)
+    digest(food)
+  end
+
+  def digest(food)
+    puts "digesting #{food}"
+  end
+end
+
+class Dog < Animal
+  def speak
+    bark
+  end
+
+  def bark
+    puts "woof"
+    super
+  end
+end
+
+def greet(name)
+  puts "Hello, #{name}!"
+end
+
+x = 42
+name = "Ruby"
+)";
+  auto result = extractor.extract("/tmp/test.rb", source);
+  CHECK(result.nodes.size() >= 10);
+
+  bool found_Calculator = false, found_Animal = false, found_Dog = false;
+  bool found_add = false, found_version = false;
+  bool found_speak = false, found_eat = false, found_digest = false;
+  bool found_bark = false, found_greet = false;
+  bool found_require = false, found_x = false, found_name = false;
+  bool found_PI = false;
+
+  for (auto &n : result.nodes) {
+    if (n.name == "Calculator")
+      found_Calculator = true;
+    if (n.name == "Animal")
+      found_Animal = true;
+    if (n.name == "Dog")
+      found_Dog = true;
+    if (n.name == "add")
+      found_add = true;
+    if (n.name == "self.version")
+      found_version = true;
+    if (n.name == "speak")
+      found_speak = true;
+    if (n.name == "eat")
+      found_eat = true;
+    if (n.name == "digest")
+      found_digest = true;
+    if (n.name == "bark")
+      found_bark = true;
+    if (n.name == "greet")
+      found_greet = true;
+    if (n.name == "x")
+      found_x = true;
+    if (n.name == "name")
+      found_name = true;
+    if (n.name == "PI")
+      found_PI = true;
+    if (n.kind == NodeKind::Import)
+      found_require = true;
+  }
+  CHECK(found_Calculator);
+  CHECK(found_Animal);
+  CHECK(found_Dog);
+  CHECK(found_add);
+  CHECK(found_version);
+  CHECK(found_greet);
+  CHECK(found_require);
+  CHECK(found_x);
+
+  CHECK(result.unresolved.size() >= 3);
+
+  std::cout << "  [PASS] ruby_extractor (" << result.nodes.size() << " nodes, "
+            << result.unresolved.size() << " refs)\n";
+}
+
+void test_ruby_empty() {
+  RubyExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.rb", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] ruby_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2947,6 +3059,8 @@ int main() {
   test_css_empty();
   test_zig_extractor();
   test_zig_empty();
+  test_ruby_extractor();
+  test_ruby_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

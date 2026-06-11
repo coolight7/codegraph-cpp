@@ -101,6 +101,9 @@ create_extractor(const std::string &language) {
   if (language == "zig") {
     return std::make_unique<ZigExtractor>();
   }
+  if (language == "ruby" || language == "rb") {
+    return std::make_unique<RubyExtractor>();
+  }
   return nullptr;
 }
 
@@ -171,6 +174,8 @@ std::string detect_language(const std::string &file_path) {
     return "css";
   if (ext == "zig")
     return "zig";
+  if (ext == "rb")
+    return "ruby";
   return "";
 }
 
