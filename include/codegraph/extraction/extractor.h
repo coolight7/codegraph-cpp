@@ -660,6 +660,30 @@ private:
 };
 
 /**
+ * XML 语言提取器。
+ *
+ * 使用 tree-sitter 解析 XML，提取：
+ *   - 元素标签名（element 节点，取其 Name 子节点）
+ *
+ * tree-sitter 的 XML 语言描述符通过 tree_sitter_xml() 获取。
+ */
+class XmlExtractor : public LanguageExtractor {
+public:
+  XmlExtractor();
+  ~XmlExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "xml"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, ExtractionResult &result);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language

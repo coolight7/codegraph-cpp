@@ -89,6 +89,9 @@ create_extractor(const std::string &language) {
   if (language == "json") {
     return std::make_unique<JsonExtractor>();
   }
+  if (language == "xml") {
+    return std::make_unique<XmlExtractor>();
+  }
   return nullptr;
 }
 
@@ -151,6 +154,8 @@ std::string detect_language(const std::string &file_path) {
     return "yaml";
   if (ext == "json")
     return "json";
+  if (ext == "xml")
+    return "xml";
   return "";
 }
 
