@@ -320,10 +320,37 @@ private:
 };
 
 /**
+ * Bash 语言提取器。
+ *
+ * 使用 tree-sitter 解析 Bash 脚本，提取：
+ *   - 函数定义（function name / name()）
+ *   - 命令调用关系
+ *
+ * tree-sitter 的 Bash 语言描述符通过 tree_sitter_bash() 获取。
+ */
+class BashExtractor : public LanguageExtractor {
+public:
+  BashExtractor();
+  ~BashExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "bash"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, int64_t parent_id,
+                 ExtractionResult &result);
+  std::string get_node_text(TSNode node, const std::string &source);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
- * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"/"typescript"/"ts"/"tsx"/"markdown"/"md"）
+ * 语言标识（"cpp"/"c"/"h"/"hpp"/"hxx"/"hh"/"python"/"py"/"javascript"/"js"/"dart"/"typescript"/"ts"/"tsx"/"markdown"/"md"/"bash"/"sh"）
  * @return 提取器实例，不支持的语言返回 nullptr
  */
 std::unique_ptr<LanguageExtractor>

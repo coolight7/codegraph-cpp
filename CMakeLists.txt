@@ -90,6 +90,13 @@ add_library(ts_rust STATIC
 target_include_directories(ts_rust PUBLIC ${GRAMMAR_DIR}/tree-sitter-rust/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_rust PUBLIC tree_sitter)
 
+add_library(ts_bash STATIC
+    ${GRAMMAR_DIR}/tree-sitter-bash/src/parser.c
+    ${GRAMMAR_DIR}/tree-sitter-bash/src/scanner.c
+)
+target_include_directories(ts_bash PUBLIC ${GRAMMAR_DIR}/tree-sitter-bash/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_bash PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -113,6 +120,7 @@ add_library(codegraph_core STATIC
     src/extraction/typescript_extractor.cpp
     src/extraction/markdown_extractor.cpp
     src/extraction/rust_extractor.cpp
+    src/extraction/bash_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -140,6 +148,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_markdown
     ts_markdown_inline
     ts_rust
+    ts_bash
     pthread
 )
 

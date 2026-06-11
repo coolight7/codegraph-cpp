@@ -53,6 +53,9 @@ create_extractor(const std::string &language) {
   if (language == "rust" || language == "rs") {
     return std::make_unique<RustExtractor>();
   }
+  if (language == "bash" || language == "sh") {
+    return std::make_unique<BashExtractor>();
+  }
   return nullptr;
 }
 
@@ -91,6 +94,8 @@ std::string detect_language(const std::string &file_path) {
     return "markdown";
   if (ext == "rs")
     return "rust";
+  if (ext == "sh" || ext == "bash")
+    return "bash";
   return "";
 }
 

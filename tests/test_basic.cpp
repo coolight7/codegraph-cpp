@@ -911,6 +911,8 @@ void test_detect_language() {
   CHECK(detect_language("foo.md") == "markdown");
   CHECK(detect_language("foo.mdx") == "markdown");
   CHECK(detect_language("foo.markdown") == "markdown");
+  CHECK(detect_language("foo.sh") == "bash");
+  CHECK(detect_language("foo.bash") == "bash");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -1559,6 +1561,90 @@ fn use_calculator() {
   std::cout << "  [PASS] rust_member_call_extraction\n";
 }
 
+void test_bash_extractor() {
+  BashExtractor extractor;
+  std::string source = R"(
+#!/usr/bin/env bash
+
+function hello() {
+    echo "Hello, world!"
+}
+
+greet() {
+    local name="$1"
+    echo "Hello, $name"
+}
+
+setup() {
+    echo "Setting up..."
+    hello
+    greet "user"
+}
+)";
+
+  auto result = extractor.extract("/tmp/test.sh", source);
+  CHECK(!result.nodes.empty());
+
+  bool found_hello = false, found_greet = false, found_setup = false;
+  for (auto &n : result.nodes) {
+    if (n.name == "hello")
+      found_hello = true;
+    if (n.name == "greet")
+      found_greet = true;
+    if (n.name == "setup")
+      found_setup = true;
+  }
+  CHECK(found_hello);
+  CHECK(found_greet);
+  CHECK(found_setup);
+
+  std::cout << "  [PASS] bash_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_bash_call_extraction() {
+  BashExtractor extractor;
+  std::string source = R"(
+foo() {
+    bar
+}
+
+bar() {
+    foo
+    baz "arg1"
+}
+
+baz() {
+    echo "$1"
+}
+)";
+
+  auto result = extractor.extract("/tmp/test_calls.sh", source);
+  CHECK(!result.unresolved.empty());
+
+  bool found_bar_call = false, found_foo_call = false, found_baz_call = false;
+  for (auto &ref : result.unresolved) {
+    if (ref.ref_name == "bar")
+      found_bar_call = true;
+    if (ref.ref_name == "foo")
+      found_foo_call = true;
+    if (ref.ref_name == "baz")
+      found_baz_call = true;
+  }
+  CHECK(found_bar_call);
+  CHECK(found_foo_call);
+  CHECK(found_baz_call);
+  std::cout << "  [PASS] bash_call_extraction\n";
+}
+
+void test_bash_empty() {
+  BashExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.sh", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] bash_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -1648,6 +1734,9 @@ int main() {
   test_rust_extractor();
   test_rust_call_extraction();
   test_rust_member_call_extraction();
+  test_bash_extractor();
+  test_bash_call_extraction();
+  test_bash_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
