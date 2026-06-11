@@ -80,6 +80,9 @@ create_extractor(const std::string &language) {
   if (language == "sql") {
     return std::make_unique<SqlExtractor>();
   }
+  if (language == "lua") {
+    return std::make_unique<LuaExtractor>();
+  }
   return nullptr;
 }
 
@@ -136,6 +139,8 @@ std::string detect_language(const std::string &file_path) {
     return "csharp";
   if (ext == "sql")
     return "sql";
+  if (ext == "lua")
+    return "lua";
   return "";
 }
 

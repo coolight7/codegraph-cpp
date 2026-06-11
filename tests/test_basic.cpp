@@ -923,6 +923,7 @@ void test_detect_language() {
   CHECK(detect_language("foo.mm") == "objc");
   CHECK(detect_language("foo.cs") == "csharp");
   CHECK(detect_language("foo.sql") == "sql");
+  CHECK(detect_language("foo.lua") == "lua");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2472,6 +2473,62 @@ void test_sql_empty() {
   std::cout << "  [PASS] sql_empty\n";
 }
 
+void test_lua_extractor() {
+  LuaExtractor extractor;
+  std::string source = R"(
+function foo()
+    local x = 1
+end
+
+function bar()
+    foo()
+end
+
+local function baz()
+    bar()
+end
+)";
+  auto result = extractor.extract("/tmp/test.lua", source);
+  CHECK(result.nodes.size() == 3);
+  if (result.nodes.size() == 3) {
+    CHECK(result.nodes[0].name == "foo");
+    CHECK(result.nodes[0].kind == NodeKind::Function);
+    CHECK(result.nodes[1].name == "bar");
+    CHECK(result.nodes[1].kind == NodeKind::Function);
+    CHECK(result.nodes[2].name == "baz");
+    CHECK(result.nodes[2].kind == NodeKind::Function);
+  }
+  std::cout << "  [PASS] lua_extractor\n";
+}
+
+void test_lua_call_extraction() {
+  LuaExtractor extractor;
+  std::string source = R"(
+function foo()
+    bar()
+    baz(1, 2)
+end
+
+function bar()
+end
+
+function baz(x, y)
+end
+)";
+  auto result = extractor.extract("/tmp/test.lua", source);
+  CHECK(!result.nodes.empty());
+  CHECK(result.unresolved.size() >= 2);
+  std::cout << "  [PASS] lua_call_extraction\n";
+}
+
+void test_lua_empty() {
+  LuaExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.lua", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] lua_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2589,6 +2646,9 @@ int main() {
   test_sql_extractor();
   test_sql_call_extraction();
   test_sql_empty();
+  test_lua_extractor();
+  test_lua_call_extraction();
+  test_lua_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
