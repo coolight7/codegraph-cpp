@@ -167,6 +167,12 @@ add_library(ts_yaml STATIC
 target_include_directories(ts_yaml PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_yaml PUBLIC tree_sitter)
 
+add_library(ts_json STATIC
+    ${GRAMMAR_DIR}/tree-sitter-json/src/parser.c
+)
+target_include_directories(ts_json PUBLIC ${GRAMMAR_DIR}/tree-sitter-json/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_json PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -201,6 +207,7 @@ add_library(codegraph_core STATIC
     src/extraction/sql_extractor.cpp
     src/extraction/lua_extractor.cpp
     src/extraction/yaml_extractor.cpp
+    src/extraction/json_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -239,6 +246,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_sql
     ts_lua
     ts_yaml
+    ts_json
     pthread
 )
 

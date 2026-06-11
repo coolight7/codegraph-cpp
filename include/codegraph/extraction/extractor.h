@@ -636,6 +636,30 @@ private:
 };
 
 /**
+ * JSON 语言提取器。
+ *
+ * 使用 tree-sitter 解析 JSON，提取：
+ *   - 键值对（pair 的 key 字段）
+ *
+ * tree-sitter 的 JSON 语言描述符通过 tree_sitter_json() 获取。
+ */
+class JsonExtractor : public LanguageExtractor {
+public:
+  JsonExtractor();
+  ~JsonExtractor() override;
+
+  ExtractionResult extract(const std::string &file_path,
+                           const std::string &source) override;
+  const char *language_name() const override { return "json"; }
+
+private:
+  TSLanguage *lang_;
+
+  void walk_tree(TSNode node, const std::string &source,
+                 const std::string &file_path, ExtractionResult &result);
+};
+
+/**
  * 根据语言名创建对应的提取器。
  *
  * @param language
