@@ -924,6 +924,8 @@ void test_detect_language() {
   CHECK(detect_language("foo.cs") == "csharp");
   CHECK(detect_language("foo.sql") == "sql");
   CHECK(detect_language("foo.lua") == "lua");
+  CHECK(detect_language("foo.yaml") == "yaml");
+  CHECK(detect_language("foo.yml") == "yaml");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2529,6 +2531,39 @@ void test_lua_empty() {
   std::cout << "  [PASS] lua_empty\n";
 }
 
+void test_yaml_extractor() {
+  YamlExtractor extractor;
+  std::string source = R"(
+name: myapp
+version: "1.0.0"
+description: A sample app
+dependencies:
+  express: "^4.0.0"
+  typescript: "^5.0.0"
+scripts:
+  build: tsc
+  test: jest
+)";
+  auto result = extractor.extract("/tmp/test.yaml", source);
+  CHECK(result.nodes.size() >= 4);
+  if (result.nodes.size() >= 4) {
+    CHECK(result.nodes[0].name == "name");
+    CHECK(result.nodes[1].name == "version");
+    CHECK(result.nodes[2].name == "description");
+    CHECK(result.nodes[3].name == "dependencies");
+  }
+  std::cout << "  [PASS] yaml_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_yaml_empty() {
+  YamlExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.yaml", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] yaml_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2649,6 +2684,8 @@ int main() {
   test_lua_extractor();
   test_lua_call_extraction();
   test_lua_empty();
+  test_yaml_extractor();
+  test_yaml_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();

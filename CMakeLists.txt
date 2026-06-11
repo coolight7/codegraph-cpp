@@ -157,6 +157,16 @@ add_library(ts_lua STATIC
 target_include_directories(ts_lua PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-lua/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_lua PUBLIC tree_sitter)
 
+add_library(ts_yaml STATIC
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src/parser.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src/scanner.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src/schema.json.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src/schema.core.c
+    ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src/schema.legacy.c
+)
+target_include_directories(ts_yaml PUBLIC ${GRAMMAR_DIR}/@tree-sitter-grammars/tree-sitter-yaml/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_yaml PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -190,6 +200,7 @@ add_library(codegraph_core STATIC
     src/extraction/csharp_extractor.cpp
     src/extraction/sql_extractor.cpp
     src/extraction/lua_extractor.cpp
+    src/extraction/yaml_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -227,6 +238,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_csharp
     ts_sql
     ts_lua
+    ts_yaml
     pthread
 )
 
