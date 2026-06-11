@@ -92,6 +92,9 @@ create_extractor(const std::string &language) {
   if (language == "xml") {
     return std::make_unique<XmlExtractor>();
   }
+  if (language == "html" || language == "htm") {
+    return std::make_unique<HtmlExtractor>();
+  }
   return nullptr;
 }
 
@@ -156,6 +159,8 @@ std::string detect_language(const std::string &file_path) {
     return "json";
   if (ext == "xml")
     return "xml";
+  if (ext == "html" || ext == "htm")
+    return "html";
   return "";
 }
 

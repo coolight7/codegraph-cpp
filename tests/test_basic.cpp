@@ -928,6 +928,8 @@ void test_detect_language() {
   CHECK(detect_language("foo.yml") == "yaml");
   CHECK(detect_language("foo.json") == "json");
   CHECK(detect_language("foo.xml") == "xml");
+  CHECK(detect_language("foo.html") == "html");
+  CHECK(detect_language("foo.htm") == "html");
   std::cout << "  [PASS] detect_language\n";
 }
 
@@ -2623,6 +2625,41 @@ void test_xml_empty() {
   std::cout << "  [PASS] xml_empty\n";
 }
 
+void test_html_extractor() {
+  HtmlExtractor extractor;
+  std::string source = R"(<!DOCTYPE html>
+<html>
+<head>
+  <title>Test</title>
+</head>
+<body>
+  <div class="main">
+    <h1>Hello</h1>
+    <p>World</p>
+  </div>
+</body>
+</html>)";
+  auto result = extractor.extract("/tmp/test.html", source);
+  CHECK(result.nodes.size() >= 5);
+  if (result.nodes.size() >= 5) {
+    CHECK(result.nodes[0].name == "html");
+    CHECK(result.nodes[1].name == "head");
+    CHECK(result.nodes[2].name == "title");
+    CHECK(result.nodes[3].name == "body");
+    CHECK(result.nodes[4].name == "div");
+  }
+  std::cout << "  [PASS] html_extractor (" << result.nodes.size()
+            << " nodes)\n";
+}
+
+void test_html_empty() {
+  HtmlExtractor extractor;
+  std::string source = "";
+  auto result = extractor.extract("/tmp/empty.html", source);
+  CHECK(result.nodes.empty());
+  std::cout << "  [PASS] html_empty\n";
+}
+
 void test_impact_chain() {
   TempDb temp_db("impact.db");
 
@@ -2749,6 +2786,8 @@ int main() {
   test_json_empty();
   test_xml_extractor();
   test_xml_empty();
+  test_html_extractor();
+  test_html_empty();
   test_context_builder_splits_callers_and_callees();
   test_incremental_reindex();
   test_context_aware_same_name_resolution();
