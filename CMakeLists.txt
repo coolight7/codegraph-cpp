@@ -109,6 +109,13 @@ add_library(ts_java STATIC
 target_include_directories(ts_java PUBLIC ${GRAMMAR_DIR}/tree-sitter-java/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_java PUBLIC tree_sitter)
 
+add_library(ts_kotlin STATIC
+    ${GRAMMAR_DIR}/tree-sitter-kotlin/src/parser.c
+    ${GRAMMAR_DIR}/tree-sitter-kotlin/src/scanner.c
+)
+target_include_directories(ts_kotlin PUBLIC ${GRAMMAR_DIR}/tree-sitter-kotlin/src ${TS_DIR}/lib/include)
+target_link_libraries(ts_kotlin PUBLIC tree_sitter)
+
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
@@ -135,6 +142,7 @@ add_library(codegraph_core STATIC
     src/extraction/bash_extractor.cpp
     src/extraction/go_extractor.cpp
     src/extraction/java_extractor.cpp
+    src/extraction/kotlin_extractor.cpp
     src/extraction/extractor_factory.cpp
     src/graph/traverser.cpp
     src/search/fts_search.cpp
@@ -165,6 +173,7 @@ target_link_libraries(codegraph_core PUBLIC
     ts_bash
     ts_go
     ts_java
+    ts_kotlin
     pthread
 )
 

@@ -62,6 +62,9 @@ create_extractor(const std::string &language) {
   if (language == "java") {
     return std::make_unique<JavaExtractor>();
   }
+  if (language == "kotlin" || language == "kt") {
+    return std::make_unique<KotlinExtractor>();
+  }
   return nullptr;
 }
 
@@ -106,6 +109,8 @@ std::string detect_language(const std::string &file_path) {
     return "go";
   if (ext == "java")
     return "java";
+  if (ext == "kt" || ext == "kts")
+    return "kotlin";
   return "";
 }
 
