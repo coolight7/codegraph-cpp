@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/codegraphTargets.cmake")
+
+# 查找传递依赖（这些是 PUBLIC 依赖）
+include(CMakeFindDependencyMacro)
+find_dependency(SQLite3 REQUIRED)
+find_dependency(nlohmann_json REQUIRED)
+
+# 设置版本变量
+set(codegraph_VERSION "@PROJECT_VERSION@")
+
+check_required_components(codegraph_core)

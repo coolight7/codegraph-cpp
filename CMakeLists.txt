@@ -312,3 +312,15 @@ enable_testing()
 add_executable(test_basic tests/test_basic.cpp)
 target_link_libraries(test_basic PRIVATE codegraph_core)
 add_test(NAME basic COMMAND test_basic)
+
+install(TARGETS codegraph_core
+    EXPORT codegraphTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/codegraph
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
