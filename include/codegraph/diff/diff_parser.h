@@ -39,7 +39,7 @@ struct DiffHunk {
  * @param diff_output git diff 的原始输出
  * @return DiffHunk 列表
  */
-std::vector<DiffHunk> parse_diff(const std::string& diff_output);
+std::vector<codegraph::DiffHunk> parse_diff(const std::string& diff_output);
 
 /**
  * 安全地执行 git diff 命令。

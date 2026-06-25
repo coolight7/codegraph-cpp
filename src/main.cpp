@@ -52,13 +52,17 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <sys/inotify.h>
-#include <sys/wait.h>
 #include <thread>
-#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 using namespace codegraph;
 namespace fs = std::filesystem;
@@ -129,12 +133,13 @@ static Database open_db() {
  * 判断文件是否应该跳过（隐藏目录、构建目录、依赖目录等）。
  */
 static bool should_skip(const std::string &file_path) {
-  return file_path.find("/.") != std::string::npos ||
-         file_path.find("/node_modules/") != std::string::npos ||
-         file_path.find("/build/") != std::string::npos ||
-         file_path.find("/build-") != std::string::npos ||
-         file_path.find("/__pycache__/") != std::string::npos ||
-         file_path.find("\\.git\\") != std::string::npos;
+  fs::path p(file_path);
+  std::string path_str = p.generic_string();
+  return path_str.find("/.") != std::string::npos ||
+         path_str.find("/node_modules/") != std::string::npos ||
+         path_str.find("/build/") != std::string::npos ||
+         path_str.find("/build-") != std::string::npos ||
+         path_str.find("/__pycache__/") != std::string::npos;
 }
 
 /**
@@ -691,9 +696,33 @@ static void index_directory(Database &db, const std::string &path,
 
 /**
  * 运行 Python 脚本（用于语义搜索的 embed/query）。
- * 使用 fork+execvp，不经过 shell。
+ * 使用 fork+execvp（Linux）或 CreateProcess（Windows），不经过 shell。
  */
 static int run_python(const std::vector<std::string> &args) {
+#ifdef _WIN32
+  std::string cmd_line = "python";
+  for (const auto &arg : args) {
+    cmd_line += " \"" + arg + "\"";
+  }
+
+  STARTUPINFOA si = {};
+  si.cb = sizeof(si);
+  si.dwFlags = STARTF_USESTDHANDLES;
+  PROCESS_INFORMATION pi = {};
+
+  if (!CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr,
+                      FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+    std::cerr << "Failed to run python" << std::endl;
+    return 1;
+  }
+
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD exit_code = 0;
+  GetExitCodeProcess(pi.hProcess, &exit_code);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+  return static_cast<int>(exit_code);
+#else
   std::vector<char *> argv;
   argv.reserve(args.size() + 2);
   argv.push_back(const_cast<char *>("python3"));
@@ -724,6 +753,7 @@ static int run_python(const std::vector<std::string> &args) {
     return 128 + WTERMSIG(status);
   }
   return 1;
+#endif
 }
 
 /**
@@ -1364,17 +1394,19 @@ int main(int argc, char *argv[]) {
     std::string abs_path = fs::absolute(path).lexically_normal().string();
     std::cout << "Watching " << abs_path << " for changes..." << std::endl;
 
-    FileWatcher watcher(abs_path);
+    static std::atomic<bool> running{true};
 
-    watcher.set_callback([&](const std::string &changed_path, uint32_t mask) {
+    auto watcher = FileWatcher::create(abs_path, &running);
+
+    watcher->set_callback([&](const std::string &changed_path, uint32_t mask) {
       if (should_skip(changed_path))
         return;
 
       // 新目录：自动添加监听
-      if (mask & IN_CREATE) {
+      if (mask & FILE_EVENT_CREATED) {
         try {
           if (fs::is_directory(changed_path)) {
-            watcher.add_watch_recursive(changed_path);
+            watcher->add_watch_recursive(changed_path);
             return;
           }
         } catch (...) {
@@ -1386,13 +1418,22 @@ int main(int argc, char *argv[]) {
       resolve_unresolved_refs(db);
     });
 
-    // 优雅退出：SIGINT/SIGTERM 停止监听
-    static std::atomic<bool> running{true};
+    // 优雅退出
+#ifdef _WIN32
+    SetConsoleCtrlHandler([](DWORD ctrl_type) -> BOOL {
+      if (ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_BREAK_EVENT) {
+        running = false;
+        return TRUE;
+      }
+      return FALSE;
+    }, TRUE);
+#else
     std::signal(SIGINT, [](int) { running = false; });
     std::signal(SIGTERM, [](int) { running = false; });
+#endif
 
     while (running) {
-      watcher.poll(1000);
+      watcher->poll(1000);
     }
     std::cout << "\nStopped watching." << std::endl;
 

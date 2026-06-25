@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(WIN32)
+    add_definitions(-D_WIN32_WINNT=0x0600 -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     /utf8")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf8")
+endif()
+
 # ── tree-sitter from npm (matching version for grammars) ──
 set(TS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/tree-sitter/vendor/tree-sitter)
 
@@ -219,8 +225,13 @@ find_package(SQLite3 REQUIRED)
 # ── nlohmann/json ──
 find_package(nlohmann_json 3.10 QUIET)
 if(NOT TARGET nlohmann_json::nlohmann_json)
+    if(NOT WIN32)
+        set(NLOHMANN_JSON_FALLBACK_DIR /usr/include)
+    else()
+        set(NLOHMANN_JSON_FALLBACK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann_json/include)
+    endif()
     add_library(nlohmann_json_fallback INTERFACE)
-    target_include_directories(nlohmann_json_fallback INTERFACE /usr/include)
+    target_include_directories(nlohmann_json_fallback INTERFACE ${NLOHMANN_JSON_FALLBACK_DIR})
     add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json_fallback)
 endif()
 
@@ -299,8 +310,11 @@ target_link_libraries(codegraph_core PUBLIC
     ts_zig
     ts_ruby
     ts_glsl
-    pthread
 )
+
+if(NOT WIN32)
+    target_link_libraries(codegraph_core PUBLIC pthread)
+endif()
 
 # ── CLI executable ──
 add_executable(codegraph src/main.cpp)

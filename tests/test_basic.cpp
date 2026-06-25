@@ -14,14 +14,26 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <sys/wait.h>
 #include <thread>
-#include <unistd.h>
 #include <unordered_set>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <process.h>
+#else
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
 using namespace codegraph;
 namespace fs = std::filesystem;
+
+#ifdef _WIN32
+inline int current_pid() { return _getpid(); }
+#else
+inline int current_pid() { return getpid(); }
+#endif
 
 namespace {
 
@@ -39,7 +51,7 @@ namespace {
 
 std::string temp_db_path(const std::string &name) {
   return (fs::temp_directory_path() /
-          ("codegraph_test_" + std::to_string(getpid()) + "_" + name))
+          ("codegraph_test_" + std::to_string(current_pid()) + "_" + name))
       .string();
 }
 
@@ -60,10 +72,18 @@ struct TempDb {
 };
 
 fs::path find_codegraph_exe() {
+#ifdef _WIN32
+  const std::string exe_name = "codegraph.exe";
+#else
+  const std::string exe_name = "codegraph";
+#endif
   const fs::path cwd = fs::current_path();
-  const std::vector<fs::path> candidates = {cwd / "build" / "codegraph",
-                                            cwd / "codegraph",
-                                            cwd.parent_path() / "codegraph"};
+  const std::vector<fs::path> candidates = {
+      cwd / "build" / exe_name,
+      cwd / "build" / "Release" / exe_name,
+      cwd / "build" / "Debug" / exe_name,
+      cwd / exe_name,
+      cwd.parent_path() / exe_name};
 
   for (const auto &candidate : candidates) {
     if (fs::exists(candidate) && fs::is_regular_file(candidate)) {
@@ -266,16 +286,18 @@ namespace math {
 }
 
 void test_run_git_diff_does_not_execute_shell() {
-  const char *marker = "/tmp/codegraph_git_diff_shell_injection_marker";
-  std::remove(marker);
+  auto marker_path =
+      fs::temp_directory_path() / "codegraph_git_diff_shell_injection_marker";
+  std::string marker = marker_path.string();
+  std::remove(marker.c_str());
 
   (void)run_git_diff(std::string("HEAD; touch ") + marker);
 
-  FILE *file = std::fopen(marker, "r");
+  FILE *file = std::fopen(marker.c_str(), "r");
   CHECK(file == nullptr);
   if (file != nullptr) {
     std::fclose(file);
-    std::remove(marker);
+    std::remove(marker.c_str());
   }
 
   std::cout << "  [PASS] run_git_diff_does_not_execute_shell\n";
@@ -935,6 +957,30 @@ void test_detect_language() {
 
 int run_codegraph_cli(const fs::path &exe, const fs::path &cwd,
                       const std::vector<std::string> &args) {
+#ifdef _WIN32
+  std::string cmd_line = "\"" + exe.string() + "\"";
+  for (const auto &arg : args) {
+    cmd_line += " \"" + arg + "\"";
+  }
+
+  STARTUPINFOA si = {};
+  si.cb = sizeof(si);
+  si.dwFlags = STARTF_USESTDHANDLES;
+  PROCESS_INFORMATION pi = {};
+
+  if (!CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr,
+                      FALSE, CREATE_NO_WINDOW, nullptr, cwd.string().c_str(),
+                      &si, &pi)) {
+    return 1;
+  }
+
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD exit_code = 0;
+  GetExitCodeProcess(pi.hProcess, &exit_code);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+  return static_cast<int>(exit_code);
+#else
   pid_t pid = fork();
   CHECK(pid >= 0);
   if (pid == 0) {
@@ -968,13 +1014,15 @@ int run_codegraph_cli(const fs::path &exe, const fs::path &cwd,
   if (!WIFEXITED(status))
     return 1;
   return WEXITSTATUS(status);
+#endif
 }
 
 void test_incremental_reindex() {
   const fs::path exe = find_codegraph_exe();
 
-  const fs::path root = fs::path("/tmp") / ("codegraph_incremental_cli_" +
-                                            std::to_string(getpid()));
+  const fs::path root = fs::temp_directory_path() /
+                         ("codegraph_incremental_cli_" +
+                          std::to_string(current_pid()));
   fs::remove_all(root);
   fs::create_directories(root);
 
@@ -1054,7 +1102,8 @@ void test_context_aware_same_name_resolution() {
   const fs::path exe = find_codegraph_exe();
 
   const fs::path root =
-      fs::path("/tmp") / ("codegraph_same_name_" + std::to_string(getpid()));
+      fs::temp_directory_path() / ("codegraph_same_name_" +
+                                   std::to_string(current_pid()));
   fs::remove_all(root);
   fs::create_directories(root);
 

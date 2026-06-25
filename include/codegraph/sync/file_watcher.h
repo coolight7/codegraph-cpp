@@ -1,15 +1,16 @@
 /**
- * file_watcher.h — Linux inotify 文件监听接口
+ * file_watcher.h — 文件监听接口（跨平台）
  *
- * 封装 Linux 的 inotify API，用于监听文件系统变更并触发增量索引。
+ * 抽象接口，平台实现隐藏在 cpp 文件中。
+ * 通过静态工厂方法 FileWatcher::create() 创建平台对应的实例。
  *
  * 使用模式：
- *   FileWatcher watcher("/path/to/project");
- *   watcher.set_callback([](const std::string& path, uint32_t mask) {
+ *   auto watcher = FileWatcher::create("/path/to/project", &running);
+ *   watcher->set_callback([](const std::string& path, uint32_t mask) {
  *       // 处理文件变更
  *   });
  *   while (running) {
- *       watcher.poll(1000);  // 阻塞等待事件，超时 1 秒
+ *       watcher->poll(1000);  // 阻塞等待事件，超时 1 秒
  *   }
  *
  * 监听的事件：修改、创建、删除、移动
@@ -17,57 +18,61 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
-#include <unordered_map>
 
 namespace codegraph {
 
+/// 跨平台文件变更事件掩码
+constexpr uint32_t FILE_EVENT_MODIFIED   = 0x00000001;
+constexpr uint32_t FILE_EVENT_CREATED    = 0x00000002;
+constexpr uint32_t FILE_EVENT_DELETED    = 0x00000004;
+constexpr uint32_t FILE_EVENT_MOVED_FROM = 0x00000008;
+constexpr uint32_t FILE_EVENT_MOVED_TO   = 0x00000010;
+
 class FileWatcher {
 public:
-    /**
-     * 构造函数：初始化 inotify 并递归监听目录。
-     *
-     * @param path 要监听的根目录
-     * @throws std::runtime_error 如果 inotify 初始化失败
-     */
-    FileWatcher(const std::string& path);
-    ~FileWatcher();
-
     /** 事件回调类型：(文件路径, 事件掩码)。 */
     using Callback = std::function<void(const std::string& path, uint32_t mask)>;
 
-    /** 设置事件回调。 */
-    void set_callback(Callback cb);
+    virtual ~FileWatcher() = default;
 
     /**
-     * 对单个目录添加 inotify 监听。
-     * 监听事件：IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO
+     * 静态工厂方法：创建平台对应的文件监听器。
+     *
+     * @param path 要监听的根目录
+     * @param running 外部原子标志位指针（Windows 下用于优雅退出，Linux 下忽略）
+     * @return 平台对应的 FileWatcher 实例
+     * @throws std::runtime_error 如果初始化失败
      */
-    void add_watch(const std::string& path);
+    static std::unique_ptr<FileWatcher> create(
+        const std::string& path,
+        std::atomic<bool>* running = nullptr);
+
+    /** 设置事件回调。 */
+    virtual void set_callback(Callback cb) = 0;
+
+    /** 对单个目录添加监听。 */
+    virtual void add_watch(const std::string& path) = 0;
 
     /** 递归监听目录树中的所有子目录。 */
-    void add_watch_recursive(const std::string& path);
+    virtual void add_watch_recursive(const std::string& path) = 0;
 
     /**
-     * 轮询 inotify 事件。
-     *
-     * 阻塞等待直到有事件发生或超时。
-     * select() + read() 的组合，处理 EINTR 信号中断。
+     * 轮询文件变更事件。
      *
      * @param timeout_ms 超时时间（毫秒）
      */
-    void poll(int timeout_ms = 1000);
+    virtual void poll(int timeout_ms = 1000) = 0;
 
     /** 停止监听。 */
-    void stop();
+    virtual void stop() = 0;
 
-private:
-    int inotify_fd_ = -1;                               // inotify 文件描述符
-    std::unordered_map<int, std::string> watch_map_;    // wd → 目录路径映射
-    Callback callback_;
-    bool running_ = false;
+protected:
+    FileWatcher() = default;
 };
 
 }  // namespace codegraph

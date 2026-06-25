@@ -27,16 +27,21 @@
 
 #include "codegraph/mcp/mcp_server.h"
 #include "codegraph/diff/diff_parser.h"
-#include <cerrno>
 #include <chrono>
-#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <unordered_map>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <cerrno>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <unordered_map>
+#endif
 
 namespace codegraph {
 
@@ -613,7 +618,7 @@ nlohmann::json McpServer::tool_diff(const nlohmann::json &args) {
 /**
  * 语义搜索：调用 Python embed.py 脚本。
  *
- * 为什么用 fork+exec 而不是嵌入 Python：
+ * 为什么用独立进程而不是嵌入 Python：
  *   - 避免 C++ 项目依赖 Python 头文件
  *   - sentence-transformers 库只在需要时安装
  *   - 进程隔离，Python 崩溃不影响 C++ 服务器
@@ -633,6 +638,49 @@ nlohmann::json McpServer::tool_semantic_search(const nlohmann::json &args) {
     return make_error("No .codegraph/index found. Run 'codegraph init' first.");
   }
 
+#ifdef _WIN32
+  // Windows: 使用 CreateProcess + 匿名管道
+  HANDLE hReadPipe = nullptr, hWritePipe = nullptr;
+  SECURITY_ATTRIBUTES sa = {};
+  sa.nLength = sizeof(sa);
+  sa.bInheritHandle = TRUE;
+
+  if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0)) {
+    return make_error("Failed to create pipe");
+  }
+  SetHandleInformation(hReadPipe, HANDLE_FLAG_INHERIT, 0);
+
+  std::string cmd_line = "python scripts/embed.py query \"" + db_path + "\" \"" + query + "\" " + std::to_string(limit);
+
+  STARTUPINFOA si = {};
+  si.cb = sizeof(si);
+  si.hStdOutput = hWritePipe;
+  si.hStdError = hWritePipe;
+  si.dwFlags |= STARTF_USESTDHANDLES;
+
+  PROCESS_INFORMATION pi = {};
+  if (!CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr,
+                      TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+    CloseHandle(hReadPipe);
+    CloseHandle(hWritePipe);
+    return make_error("Failed to run python");
+  }
+
+  CloseHandle(hWritePipe);
+
+  std::string result;
+  char buf[4096];
+  DWORD bytes_read = 0;
+  while (ReadFile(hReadPipe, buf, sizeof(buf), &bytes_read, nullptr) && bytes_read > 0) {
+    result.append(buf, bytes_read);
+  }
+  CloseHandle(hReadPipe);
+
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+#else
+  // Linux: 使用 fork + execvp + pipe
   std::vector<std::string> argv_strs = {
       "python3", script_path, "query", db_path, query, std::to_string(limit)};
 
@@ -686,6 +734,7 @@ nlohmann::json McpServer::tool_semantic_search(const nlohmann::json &args) {
 
   int status = 0;
   waitpid(pid, &status, 0);
+#endif
 
   if (result.empty()) {
     return make_error("Semantic search returned no results. Run 'codegraph "
