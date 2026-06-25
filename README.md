@@ -17,9 +17,8 @@ C++ 代码索引工具。用 tree-sitter 解析源码，存入 SQLite，提供�
 git clone https://github.com/plutoaac/codegraph-cpp.git
 cd codegraph-cpp
 npm install --legacy-peer-deps          # 安装 tree-sitter grammar
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 ## 快速开始

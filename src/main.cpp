@@ -139,7 +139,8 @@ static bool should_skip(const std::string &file_path) {
          path_str.find("/node_modules/") != std::string::npos ||
          path_str.find("/build/") != std::string::npos ||
          path_str.find("/build-") != std::string::npos ||
-         path_str.find("/__pycache__/") != std::string::npos;
+         path_str.find("/__pycache__/") != std::string::npos ||
+         path_str.find("/.git/") != std::string::npos;
 }
 
 /**

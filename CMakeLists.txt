@@ -7,8 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600 -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     /utf8")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf8")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     /utf-8")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
 endif()
 
 # ── tree-sitter from npm (matching version for grammars) ──
