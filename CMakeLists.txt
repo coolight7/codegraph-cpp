@@ -130,10 +130,10 @@ target_include_directories(ts_php PUBLIC ${GRAMMAR_DIR}/tree-sitter-php/php/src 
 target_link_libraries(ts_php PUBLIC tree_sitter)
 
 add_library(ts_swift STATIC
-    ${GRAMMAR_DIR}/tree-sitter-swift/src/parser.c
-    ${GRAMMAR_DIR}/tree-sitter-swift/src/scanner.c
+    ${GRAMMAR_DIR}/@ast-grep/lang-swift/src/parser.c
+    ${GRAMMAR_DIR}/@ast-grep/lang-swift/src/scanner.c
 )
-target_include_directories(ts_swift PUBLIC ${GRAMMAR_DIR}/tree-sitter-swift/src ${TS_DIR}/lib/include)
+target_include_directories(ts_swift PUBLIC ${GRAMMAR_DIR}/@ast-grep/lang-swift/src ${TS_DIR}/lib/include)
 target_link_libraries(ts_swift PUBLIC tree_sitter)
 
 add_library(ts_objc STATIC

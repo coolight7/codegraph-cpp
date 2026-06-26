@@ -14,6 +14,7 @@
   "description": "",
   "dependencies": {
     "@ast-grep/lang-dart": "^0.0.7",
+    "@ast-grep/lang-swift": "^0.0.8",
     "@derekstride/tree-sitter-sql": "^0.3.11",
     "@tree-sitter-grammars/tree-sitter-kotlin": "^1.1.0",
     "@tree-sitter-grammars/tree-sitter-lua": "^0.4.1",
@@ -37,7 +38,6 @@
     "tree-sitter-python": "^0.23.2",
     "tree-sitter-ruby": "^0.23.1",
     "tree-sitter-rust": "^0.24.0",
-    "tree-sitter-swift": "^0.7.1",
     "tree-sitter-typescript": "^0.23.2"
   }
 }
