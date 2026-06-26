@@ -279,9 +279,9 @@ namespace math {
     calls.insert(ref.ref_name);
   }
 
-  CHECK(calls.contains("add") > 0);
-  CHECK(calls.contains("reset") > 0);
-  CHECK(calls.contains("get") > 0);
+  CHECK(calls.contains("add"));
+  CHECK(calls.contains("reset"));
+  CHECK(calls.contains("get"));
   std::cout << "  [PASS] cpp_member_call_extraction\n";
 }
 

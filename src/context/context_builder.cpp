@@ -21,6 +21,7 @@
 
 #include "codegraph/context/context_builder.h"
 #include <unordered_set>
+#include <unordered_map>
 
 namespace codegraph {
 
@@ -41,8 +42,8 @@ ContextBuilder::ContextBuilder(Database& db, GraphTraverser& traverser)
  *   AI Agent 的上下文窗口有限，精简输出可以塞进更多有用信息。
  *   docstring、visibility、is_static 等字段对 Agent 的帮助不大。
  */
-nlohmann::json ContextBuilder::node_to_json(const Node& node) {
-    nlohmann::json j = {
+Json ContextBuilder::node_to_json(const Node& node) {
+    Json j = {
         {"kind", node_kind_str(node.kind)},
         {"name", node.name},
         {"file", node.file_path},
@@ -58,7 +59,7 @@ nlohmann::json ContextBuilder::node_to_json(const Node& node) {
  * 将 Edge 转为精简 JSON。
  * 只保留 source→target+kind，省略 id、line、col 等元数据。
  */
-nlohmann::json ContextBuilder::edge_to_json(const Edge& edge) {
+Json ContextBuilder::edge_to_json(const Edge& edge) {
     return {
         {"src", edge.source_id},
         {"dst", edge.target_id},
@@ -69,9 +70,9 @@ nlohmann::json ContextBuilder::edge_to_json(const Edge& edge) {
 /**
  * 符号搜索：委托给数据库的 FTS5 全文搜索。
  */
-nlohmann::json ContextBuilder::search_symbols(const std::string& query, int limit) {
+Json ContextBuilder::search_symbols(const std::string& query, int limit) {
     auto nodes = db_.search_fts(query, limit);
-    nlohmann::json result = nlohmann::json::array();
+    Json result = Json::array();
     for (auto& n : nodes) {
         result.push_back(node_to_json(n));
     }
@@ -102,7 +103,7 @@ nlohmann::json ContextBuilder::search_symbols(const std::string& query, int limi
  *   如果类定义在 .h 文件中，还会查找对应的 .cpp 文件中的方法实现。
  *   支持的头文件扩展名：.h/.hpp/.hxx/.hh
  */
-nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limit, int max_depth) {
+Json ContextBuilder::build_context(const std::string& symbol, int limit, int max_depth) {
     // 先精确匹配，再 FTS 模糊搜索
     auto nodes = db_.find_nodes_by_name(symbol, 5);
     if (nodes.empty()) {
@@ -125,7 +126,7 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
         }
     }
     const auto& target = nodes[best_idx];
-    nlohmann::json result;
+    Json result;
     result["symbol"] = node_to_json(target);
 
     // ── 类/结构体特殊处理 ──
@@ -161,7 +162,7 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
         // 聚合所有方法的 callers 和 callees
         std::unordered_map<int64_t, Node> caller_nodes, callee_nodes;
         std::unordered_set<int64_t> seen_edge_ids;
-        nlohmann::json edges_json = nlohmann::json::array();
+        Json edges_json = Json::array();
 
         for (auto& method : class_methods) {
             // 限制处理的方法数，避免大类输出过多
@@ -187,14 +188,14 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
         }
 
         // 应用 limit
-        result["callers"] = nlohmann::json::array();
+        result["callers"] = Json::array();
         int caller_count = 0;
         for (auto& [id, n] : caller_nodes) {
             if (caller_count++ >= limit) break;
             result["callers"].push_back(node_to_json(n));
         }
 
-        result["callees"] = nlohmann::json::array();
+        result["callees"] = Json::array();
         int callee_count = 0;
         for (auto& [id, n] : callee_nodes) {
             if (callee_count++ >= limit) break;
@@ -202,7 +203,7 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
         }
 
         result["edges"] = std::move(edges_json);
-        result["methods"] = nlohmann::json::array();
+        result["methods"] = Json::array();
         for (auto& m : class_methods) {
             result["methods"].push_back(node_to_json(m));
         }
@@ -211,14 +212,14 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
         auto callers = traverser_.get_callers(target.id, max_depth);
         auto callees = traverser_.get_callees(target.id, max_depth);
 
-        result["callers"] = nlohmann::json::array();
+        result["callers"] = Json::array();
         int caller_count = 0;
         for (auto& n : callers.nodes) {
             if (caller_count++ >= limit) break;
             result["callers"].push_back(node_to_json(n));
         }
 
-        result["callees"] = nlohmann::json::array();
+        result["callees"] = Json::array();
         int callee_count = 0;
         for (auto& n : callees.nodes) {
             if (callee_count++ >= limit) break;
@@ -227,7 +228,7 @@ nlohmann::json ContextBuilder::build_context(const std::string& symbol, int limi
 
         // 边去重
         std::unordered_set<int64_t> seen_edge_ids;
-        result["edges"] = nlohmann::json::array();
+        result["edges"] = Json::array();
         auto add_edge = [&](const Edge& e) {
             if (seen_edge_ids.insert(e.id).second) {
                 result["edges"].push_back(edge_to_json(e));
@@ -264,19 +265,19 @@ static const Node& pick_best_node(const std::vector<Node>& nodes) {
  * 查找谁调用了某符号。
  * 流程：按名字查找节点 → 选择最佳候选 → 调用图遍历。
  */
-nlohmann::json ContextBuilder::get_callers(const std::string& symbol, int max_depth) {
+Json ContextBuilder::get_callers(const std::string& symbol, int max_depth) {
     auto nodes = db_.find_nodes_by_name(symbol, 5);
     if (nodes.empty()) {
         return {{"error", "Symbol not found: " + symbol}};
     }
 
     auto result = traverser_.get_callers(pick_best_node(nodes).id, max_depth);
-    nlohmann::json json_result;
-    json_result["nodes"] = nlohmann::json::array();
+    Json json_result;
+    json_result["nodes"] = Json::array();
     for (auto& n : result.nodes) {
         json_result["nodes"].push_back(node_to_json(n));
     }
-    json_result["edges"] = nlohmann::json::array();
+    json_result["edges"] = Json::array();
     for (auto& e : result.edges) {
         json_result["edges"].push_back(edge_to_json(e));
     }
@@ -286,19 +287,19 @@ nlohmann::json ContextBuilder::get_callers(const std::string& symbol, int max_de
 /**
  * 查找某符号调用了谁。
  */
-nlohmann::json ContextBuilder::get_callees(const std::string& symbol, int max_depth) {
+Json ContextBuilder::get_callees(const std::string& symbol, int max_depth) {
     auto nodes = db_.find_nodes_by_name(symbol, 5);
     if (nodes.empty()) {
         return {{"error", "Symbol not found: " + symbol}};
     }
 
     auto result = traverser_.get_callees(pick_best_node(nodes).id, max_depth);
-    nlohmann::json json_result;
-    json_result["nodes"] = nlohmann::json::array();
+    Json json_result;
+    json_result["nodes"] = Json::array();
     for (auto& n : result.nodes) {
         json_result["nodes"].push_back(node_to_json(n));
     }
-    json_result["edges"] = nlohmann::json::array();
+    json_result["edges"] = Json::array();
     for (auto& e : result.edges) {
         json_result["edges"].push_back(edge_to_json(e));
     }
@@ -308,19 +309,19 @@ nlohmann::json ContextBuilder::get_callees(const std::string& symbol, int max_de
 /**
  * 影响分析：改某符号会影响谁。
  */
-nlohmann::json ContextBuilder::get_impact(const std::string& symbol, int max_depth) {
+Json ContextBuilder::get_impact(const std::string& symbol, int max_depth) {
     auto nodes = db_.find_nodes_by_name(symbol, 5);
     if (nodes.empty()) {
         return {{"error", "Symbol not found: " + symbol}};
     }
 
     auto result = traverser_.get_impact(pick_best_node(nodes).id, max_depth);
-    nlohmann::json json_result;
-    json_result["nodes"] = nlohmann::json::array();
+    Json json_result;
+    json_result["nodes"] = Json::array();
     for (auto& n : result.nodes) {
         json_result["nodes"].push_back(node_to_json(n));
     }
-    json_result["edges"] = nlohmann::json::array();
+    json_result["edges"] = Json::array();
     for (auto& e : result.edges) {
         json_result["edges"].push_back(edge_to_json(e));
     }
@@ -330,7 +331,7 @@ nlohmann::json ContextBuilder::get_impact(const std::string& symbol, int max_dep
 /**
  * 获取索引统计信息。
  */
-nlohmann::json ContextBuilder::get_status() {
+Json ContextBuilder::get_status() {
     return {
         {"node_count", db_.count_nodes()},
         {"edge_count", db_.count_edges()},

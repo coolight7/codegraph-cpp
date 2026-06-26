@@ -923,7 +923,7 @@ int main(int argc, char *argv[]) {
     if (dead_nodes.empty()) {
       std::cout << "No dead code found." << std::endl;
     } else {
-      nlohmann::json output = nlohmann::json::array();
+      Json output = Json::array();
       for (auto &node : dead_nodes) {
         output.push_back({{"kind", node_kind_str(node.kind)},
                           {"name", node.name},
@@ -946,9 +946,9 @@ int main(int argc, char *argv[]) {
     if (cycles.empty()) {
       std::cout << "No circular dependencies found." << std::endl;
     } else {
-      nlohmann::json output = nlohmann::json::array();
+      Json output = Json::array();
       for (const auto &scc : cycles) {
-        nlohmann::json members = nlohmann::json::array();
+        Json members = Json::array();
         for (int64_t id : scc) {
           auto node = db.get_node(id);
           if (node.has_value()) {
@@ -992,12 +992,12 @@ int main(int argc, char *argv[]) {
 
     auto path = traverser.find_path(from_nodes[0].id, to_nodes[0].id);
     if (path.empty()) {
-      std::cout << nlohmann::json{{"error", "No path found"}}.dump(2)
+      std::cout << Json{{"error", "No path found"}}.dump(2)
                 << std::endl;
       return 0;
     }
 
-    nlohmann::json output;
+    Json output;
     output["from"] = {{"name", from_nodes[0].name},
                       {"file", from_nodes[0].file_path},
                       {"line", from_nodes[0].line}};
@@ -1005,7 +1005,7 @@ int main(int argc, char *argv[]) {
                     {"file", to_nodes[0].file_path},
                     {"line", to_nodes[0].line}};
     output["depth"] = path.size();
-    output["path"] = nlohmann::json::array();
+    output["path"] = Json::array();
     auto path_nodes = db.get_nodes_by_ids(path);
     for (const auto &n : path_nodes) {
       output["path"].push_back(
@@ -1021,14 +1021,14 @@ int main(int argc, char *argv[]) {
     GraphTraverser traverser(db);
     auto metrics = traverser.compute_metrics(10);
 
-    nlohmann::json output;
+    Json output;
     output["total_function_nodes"] = metrics.total_nodes;
     output["total_call_edges"] = metrics.total_edges;
     output["circular_dependencies"] = metrics.circular_deps;
     output["max_call_depth"] = metrics.max_call_depth;
     output["avg_call_depth"] = metrics.avg_call_depth;
 
-    output["most_called"] = nlohmann::json::array();
+    output["most_called"] = Json::array();
     for (const auto &[node, count] : metrics.most_called) {
       output["most_called"].push_back({{"name", node.name},
                                        {"file", node.file_path},
@@ -1036,7 +1036,7 @@ int main(int argc, char *argv[]) {
                                        {"callers", count}});
     }
 
-    output["most_calling"] = nlohmann::json::array();
+    output["most_calling"] = Json::array();
     for (const auto &[node, count] : metrics.most_calling) {
       output["most_calling"].push_back({{"name", node.name},
                                         {"file", node.file_path},
@@ -1068,13 +1068,13 @@ int main(int argc, char *argv[]) {
 
     auto impact = traverser.get_impact_chain(nodes[0].id, 5);
 
-    nlohmann::json output;
+    Json output;
     output["source"] = {{"name", nodes[0].name},
                         {"file", nodes[0].file_path},
                         {"line", nodes[0].line}};
-    output["impact"] = nlohmann::json::array();
+    output["impact"] = Json::array();
     for (const auto &in : impact) {
-      nlohmann::json path_names = nlohmann::json::array();
+      Json path_names = Json::array();
       auto path_nodes = db.get_nodes_by_ids(in.path);
       for (const auto &pn : path_nodes) {
         path_names.push_back(pn.name);
@@ -1341,13 +1341,13 @@ int main(int argc, char *argv[]) {
     }
 
     // 输出 JSON
-    nlohmann::json output;
-    output["changed_files"] = nlohmann::json::array();
+    Json output;
+    output["changed_files"] = Json::array();
     for (auto &[file, _] : file_hunks) {
       output["changed_files"].push_back(file);
     }
 
-    output["affected_symbols"] = nlohmann::json::array();
+    output["affected_symbols"] = Json::array();
     for (auto &[id, node] : affected_nodes) {
       output["affected_symbols"].push_back({{"kind", node_kind_str(node.kind)},
                                             {"name", node.name},
@@ -1355,7 +1355,7 @@ int main(int argc, char *argv[]) {
                                             {"line", node.line}});
     }
 
-    output["impact"] = nlohmann::json::array();
+    output["impact"] = Json::array();
     for (auto &[id, node] : impact_nodes) {
       if (affected_nodes.contains(id))
         continue;

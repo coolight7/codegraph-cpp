@@ -20,7 +20,7 @@
 
 #include "codegraph/db/database.h"
 #include "codegraph/graph/traverser.h"
-#include <nlohmann/json.hpp>
+#include "codegraph/core/json.hpp"
 
 namespace codegraph {
 
@@ -42,32 +42,32 @@ public:
      * @param limit 每类结果的最大数量
      * @param max_depth 图遍历深度
      */
-    nlohmann::json build_context(const std::string& symbol, int limit = 10, int max_depth = 3);
+    Json build_context(const std::string& symbol, int limit = 10, int max_depth = 3);
 
     /** 符号搜索（FTS5 全文搜索）。 */
-    nlohmann::json search_symbols(const std::string& query, int limit = 20);
+    Json search_symbols(const std::string& query, int limit = 20);
 
     /** 查找谁调用了某符号。 */
-    nlohmann::json get_callers(const std::string& symbol, int max_depth = 3);
+    Json get_callers(const std::string& symbol, int max_depth = 3);
 
     /** 查找某符号调用了谁。 */
-    nlohmann::json get_callees(const std::string& symbol, int max_depth = 3);
+    Json get_callees(const std::string& symbol, int max_depth = 3);
 
     /** 影响分析。 */
-    nlohmann::json get_impact(const std::string& symbol, int max_depth = 5);
+    Json get_impact(const std::string& symbol, int max_depth = 5);
 
     /** 索引统计信息。 */
-    nlohmann::json get_status();
+    Json get_status();
 
 private:
     Database& db_;
     GraphTraverser& traverser_;
 
     /** Node → 精简 JSON（kind/name/file/line/signature）。 */
-    nlohmann::json node_to_json(const Node& node);
+    Json node_to_json(const Node& node);
 
     /** Edge → 精简 JSON（src/dst/kind）。 */
-    nlohmann::json edge_to_json(const Edge& edge);
+    Json edge_to_json(const Edge& edge);
 };
 
 }  // namespace codegraph

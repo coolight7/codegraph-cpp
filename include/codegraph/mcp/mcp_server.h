@@ -30,7 +30,7 @@
 #include "codegraph/core/lru_cache.h"
 #include "codegraph/db/database.h"
 #include "codegraph/graph/traverser.h"
-#include <nlohmann/json.hpp>
+#include "codegraph/core/json.hpp"
 #include <string>
 
 namespace codegraph {
@@ -71,37 +71,37 @@ private:
     // ── JSON-RPC 路由 ──
 
     /** 请求路由：根据 method 分发到处理函数。 */
-    nlohmann::json handle_request(const nlohmann::json& request);
+    Json handle_request(const Json& request);
 
     /** 处理 initialize 握手。 */
-    nlohmann::json handle_initialize(const nlohmann::json& params);
+    Json handle_initialize(const Json& params);
 
     /** 返回可用工具列表。 */
-    nlohmann::json handle_tools_list();
+    Json handle_tools_list();
 
     /** 工具调用路由。 */
-    nlohmann::json handle_tools_call(const nlohmann::json& params);
+    Json handle_tools_call(const Json& params);
 
     // ── 工具实现 ──
 
-    nlohmann::json tool_search(const nlohmann::json& args);
-    nlohmann::json tool_context(const nlohmann::json& args);
-    nlohmann::json tool_callers(const nlohmann::json& args);
-    nlohmann::json tool_callees(const nlohmann::json& args);
-    nlohmann::json tool_impact(const nlohmann::json& args);
-    nlohmann::json tool_node(const nlohmann::json& args);
-    nlohmann::json tool_status(const nlohmann::json& args);
-    nlohmann::json tool_files(const nlohmann::json& args);
-    nlohmann::json tool_diff(const nlohmann::json& args);
-    nlohmann::json tool_semantic_search(const nlohmann::json& args);
+    Json tool_search(const Json& args);
+    Json tool_context(const Json& args);
+    Json tool_callers(const Json& args);
+    Json tool_callees(const Json& args);
+    Json tool_impact(const Json& args);
+    Json tool_node(const Json& args);
+    Json tool_status(const Json& args);
+    Json tool_files(const Json& args);
+    Json tool_diff(const Json& args);
+    Json tool_semantic_search(const Json& args);
 
     // ── 响应构造 ──
 
     /** 构造成功的 MCP 响应。 */
-    nlohmann::json make_result(const std::string& text);
+    Json make_result(const std::string& text);
 
     /** 构造错误的 MCP 响应。 */
-    nlohmann::json make_error(const std::string& message);
+    Json make_error(const std::string& message);
 };
 
 }  // namespace codegraph

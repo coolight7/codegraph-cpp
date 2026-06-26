@@ -45,7 +45,7 @@ static NodeKind classify_swift_node(const char *type_name) {
 }
 
 static std::string find_swift_name(TSNode node, const std::string &source) {
-  TSNode name_node = ts_node_child_by_field_name(node, "name", 4);
+  TSNode name_node = ts_node_child_by_field_name(node, "name", (uint32_t)strlen("name"));
   if (!ts_node_is_null(name_node)) {
     uint32_t start = ts_node_start_byte(name_node);
     uint32_t end = ts_node_end_byte(name_node);

@@ -90,7 +90,7 @@ void McpServer::check_index_update() {
  * 确保相同参数的查询命中缓存。
  */
 static std::string make_cache_key(const std::string &tool_name,
-                                  const nlohmann::json &args) {
+                                  const Json &args) {
   return tool_name + ":" + args.dump();
 }
 
@@ -112,9 +112,9 @@ void McpServer::run() {
     if (line.empty())
       continue;
 
-    nlohmann::json response;
+    Json response;
     try {
-      auto request = nlohmann::json::parse(line);
+      auto request = Json::parse(line);
       response = handle_request(request);
     } catch (const std::exception &e) {
       response = {{"jsonrpc", "2.0"},
@@ -139,15 +139,15 @@ void McpServer::run() {
  *   - tools/call: 调用指定工具
  *   - notifications/initialized: 客户端初始化完成通知（无响应）
  */
-nlohmann::json McpServer::handle_request(const nlohmann::json &request) {
+Json McpServer::handle_request(const Json &request) {
   // 检查索引是否更新，如果是则失效缓存
   check_index_update();
 
   std::string method = request.value("method", "");
-  auto id = request.contains("id") ? request["id"] : nlohmann::json(nullptr);
-  auto params = request.value("params", nlohmann::json::object());
+  auto id = request.contains("id") ? request["id"] : Json(nullptr);
+  auto params = request.value("params", Json::object());
 
-  nlohmann::json result;
+  Json result;
 
   if (method == "initialize") {
     result = handle_initialize(params);
@@ -172,9 +172,9 @@ nlohmann::json McpServer::handle_request(const nlohmann::json &request) {
  * 处理 initialize 请求：返回协议版本和服务器能力。
  * 这是 MCP 握手的第一步，客户端确认服务器支持的功能。
  */
-nlohmann::json McpServer::handle_initialize(const nlohmann::json &) {
+Json McpServer::handle_initialize(const Json &) {
   return {{"protocolVersion", "2024-11-05"},
-          {"capabilities", {{"tools", nlohmann::json::object()}}},
+          {"capabilities", {{"tools", Json::object()}}},
           {"serverInfo", {{"name", "codegraph-cpp"}, {"version", "0.1.0"}}}};
 }
 
@@ -191,10 +191,10 @@ nlohmann::json McpServer::handle_initialize(const nlohmann::json &) {
  *   - 提示何时应该使用这个工具
  *   - 说明参数的含义和默认值
  */
-nlohmann::json McpServer::handle_tools_list() {
+Json McpServer::handle_tools_list() {
   return {
       {"tools",
-       nlohmann::json::array(
+       Json::array(
            {{{"name", "codegraph_search"},
              {"description",
               "Search for code symbols by name or partial name. Returns "
@@ -212,7 +212,7 @@ nlohmann::json McpServer::handle_tools_list() {
                  {"limit",
                   {{"type", "integer"},
                    {"description", "Max results (default 20)"}}}}},
-               {"required", nlohmann::json::array({"query"})}}}},
+               {"required", Json::array({"query"})}}}},
             {{"name", "codegraph_context"},
              {"description",
               "Get rich context for a symbol: its definition, callers (who "
@@ -232,7 +232,7 @@ nlohmann::json McpServer::handle_tools_list() {
                   {{"type", "integer"},
                    {"description",
                     "Max traversal depth for callers/callees (default 3)"}}}}},
-               {"required", nlohmann::json::array({"symbol"})}}}},
+               {"required", Json::array({"symbol"})}}}},
             {{"name", "codegraph_callers"},
              {"description",
               "Find all callers of a function or method -- i.e., what code "
@@ -247,7 +247,7 @@ nlohmann::json McpServer::handle_tools_list() {
                  {"max_depth",
                   {{"type", "integer"},
                    {"description", "Max traversal depth (default 3)"}}}}},
-               {"required", nlohmann::json::array({"symbol"})}}}},
+               {"required", Json::array({"symbol"})}}}},
             {{"name", "codegraph_callees"},
              {"description",
               "Find all callees of a function or method -- i.e., what this "
@@ -262,7 +262,7 @@ nlohmann::json McpServer::handle_tools_list() {
                  {"max_depth",
                   {{"type", "integer"},
                    {"description", "Max traversal depth (default 3)"}}}}},
-               {"required", nlohmann::json::array({"symbol"})}}}},
+               {"required", Json::array({"symbol"})}}}},
             {{"name", "codegraph_impact"},
              {"description",
               "Impact analysis: what would break if this symbol changes. "
@@ -277,7 +277,7 @@ nlohmann::json McpServer::handle_tools_list() {
                  {"max_depth",
                   {{"type", "integer"},
                    {"description", "Max traversal depth (default 5)"}}}}},
-               {"required", nlohmann::json::array({"symbol"})}}}},
+               {"required", Json::array({"symbol"})}}}},
             {{"name", "codegraph_node"},
              {"description",
               "Get detailed information for a single symbol: its signature, "
@@ -289,20 +289,20 @@ nlohmann::json McpServer::handle_tools_list() {
                {"properties",
                 {{"symbol",
                   {{"type", "string"}, {"description", "Symbol name"}}}}},
-               {"required", nlohmann::json::array({"symbol"})}}}},
+               {"required", Json::array({"symbol"})}}}},
             {{"name", "codegraph_status"},
              {"description",
               "Get index statistics: total number of indexed nodes (symbols), "
               "edges (relationships), and files. Use this to understand the "
               "scope of the indexed codebase."},
              {"inputSchema",
-              {{"type", "object"}, {"properties", nlohmann::json::object()}}}},
+              {{"type", "object"}, {"properties", Json::object()}}}},
             {{"name", "codegraph_files"},
              {"description",
               "List all indexed source files with their detected language. Use "
               "this to see what parts of the codebase have been indexed."},
              {"inputSchema",
-              {{"type", "object"}, {"properties", nlohmann::json::object()}}}},
+              {{"type", "object"}, {"properties", Json::object()}}}},
             {{"name", "codegraph_search_semantic"},
              {"description",
               "Semantic code search using natural language. Finds code by "
@@ -320,7 +320,7 @@ nlohmann::json McpServer::handle_tools_list() {
                  {"limit",
                   {{"type", "integer"},
                    {"description", "Max results (default 10)"}}}}},
-               {"required", nlohmann::json::array({"query"})}}}},
+               {"required", Json::array({"query"})}}}},
             {{"name", "codegraph_change_impact"},
              {"description",
               "Analyze impact of code changes: what symbols are affected, and "
@@ -339,9 +339,9 @@ nlohmann::json McpServer::handle_tools_list() {
 /**
  * 工具调用路由：根据工具名分发到对应的实现函数。
  */
-nlohmann::json McpServer::handle_tools_call(const nlohmann::json &params) {
+Json McpServer::handle_tools_call(const Json &params) {
   std::string tool_name = params.value("name", "");
-  auto args = params.value("arguments", nlohmann::json::object());
+  auto args = params.value("arguments", Json::object());
 
   if (tool_name == "codegraph_search")
     return tool_search(args);
@@ -370,7 +370,7 @@ nlohmann::json McpServer::handle_tools_call(const nlohmann::json &params) {
 // ── 工具实现 ──
 
 /** 符号搜索：委托给 ContextBuilder::search_symbols()。 */
-nlohmann::json McpServer::tool_search(const nlohmann::json &args) {
+Json McpServer::tool_search(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("search", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -389,7 +389,7 @@ nlohmann::json McpServer::tool_search(const nlohmann::json &args) {
 }
 
 /** 符号上下文：委托给 ContextBuilder::build_context()。 */
-nlohmann::json McpServer::tool_context(const nlohmann::json &args) {
+Json McpServer::tool_context(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("context", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -409,7 +409,7 @@ nlohmann::json McpServer::tool_context(const nlohmann::json &args) {
 }
 
 /** callers 查询。 */
-nlohmann::json McpServer::tool_callers(const nlohmann::json &args) {
+Json McpServer::tool_callers(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("callers", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -428,7 +428,7 @@ nlohmann::json McpServer::tool_callers(const nlohmann::json &args) {
 }
 
 /** callees 查询。 */
-nlohmann::json McpServer::tool_callees(const nlohmann::json &args) {
+Json McpServer::tool_callees(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("callees", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -447,7 +447,7 @@ nlohmann::json McpServer::tool_callees(const nlohmann::json &args) {
 }
 
 /** 影响分析。 */
-nlohmann::json McpServer::tool_impact(const nlohmann::json &args) {
+Json McpServer::tool_impact(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("impact", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -469,7 +469,7 @@ nlohmann::json McpServer::tool_impact(const nlohmann::json &args) {
  * 符号详情：返回单个符号的完整信息。
  * 与 context 不同，这里只返回符号本身，不遍历图。
  */
-nlohmann::json McpServer::tool_node(const nlohmann::json &args) {
+Json McpServer::tool_node(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("node", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -480,7 +480,7 @@ nlohmann::json McpServer::tool_node(const nlohmann::json &args) {
   auto nodes = db_.find_nodes_by_name(symbol, 1);
   if (nodes.empty())
     return make_error("Symbol not found: " + symbol);
-  nlohmann::json node_json = {
+  Json node_json = {
       {"id", nodes[0].id},     {"kind", node_kind_str(nodes[0].kind)},
       {"name", nodes[0].name}, {"file", nodes[0].file_path},
       {"line", nodes[0].line}, {"signature", nodes[0].signature}};
@@ -493,7 +493,7 @@ nlohmann::json McpServer::tool_node(const nlohmann::json &args) {
 }
 
 /** 索引统计。 */
-nlohmann::json McpServer::tool_status(const nlohmann::json &args) {
+Json McpServer::tool_status(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("status", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -509,7 +509,7 @@ nlohmann::json McpServer::tool_status(const nlohmann::json &args) {
 }
 
 /** 已索引文件列表。 */
-nlohmann::json McpServer::tool_files(const nlohmann::json &args) {
+Json McpServer::tool_files(const Json &args) {
   // 检查缓存
   auto cache_key = make_cache_key("files", args);
   if (auto cached = cache_.get(cache_key)) {
@@ -517,7 +517,7 @@ nlohmann::json McpServer::tool_files(const nlohmann::json &args) {
   }
 
   auto files = db_.get_all_files();
-  nlohmann::json result = nlohmann::json::array();
+  Json result = Json::array();
   for (auto &f : files) {
     result.push_back({{"path", f.path}, {"language", f.language}});
   }
@@ -539,7 +539,7 @@ nlohmann::json McpServer::tool_files(const nlohmann::json &args) {
  *   4. 对每个受影响符号运行影响分析
  *   5. 返回变更文件、直接受影响符号、间接受影响符号
  */
-nlohmann::json McpServer::tool_diff(const nlohmann::json &args) {
+Json McpServer::tool_diff(const Json &args) {
   std::string ref = args.value("ref", "");
   std::string diff_output = run_git_diff(ref);
   if (diff_output.empty()) {
@@ -588,13 +588,13 @@ nlohmann::json McpServer::tool_diff(const nlohmann::json &args) {
   }
 
   // 构建输出
-  nlohmann::json output;
-  output["changed_files"] = nlohmann::json::array();
+  Json output;
+  output["changed_files"] = Json::array();
   for (auto &[file, _] : file_hunks) {
     output["changed_files"].push_back(file);
   }
 
-  output["affected_symbols"] = nlohmann::json::array();
+  output["affected_symbols"] = Json::array();
   for (auto &[id, node] : affected_nodes) {
     output["affected_symbols"].push_back({{"kind", node_kind_str(node.kind)},
                                           {"name", node.name},
@@ -602,7 +602,7 @@ nlohmann::json McpServer::tool_diff(const nlohmann::json &args) {
                                           {"line", node.line}});
   }
 
-  output["impact"] = nlohmann::json::array();
+  output["impact"] = Json::array();
   for (auto &[id, node] : impact_nodes) {
     if (affected_nodes.contains(id))
       continue;
@@ -623,7 +623,7 @@ nlohmann::json McpServer::tool_diff(const nlohmann::json &args) {
  *   - sentence-transformers 库只在需要时安装
  *   - 进程隔离，Python 崩溃不影响 C++ 服务器
  */
-nlohmann::json McpServer::tool_semantic_search(const nlohmann::json &args) {
+Json McpServer::tool_semantic_search(const Json &args) {
   std::string query = args.value("query", "");
   int limit = args.value("limit", 10);
 
@@ -745,14 +745,14 @@ nlohmann::json McpServer::tool_semantic_search(const nlohmann::json &args) {
 }
 
 /** 构造成功的 MCP 响应。 */
-nlohmann::json McpServer::make_result(const std::string &text) {
+Json McpServer::make_result(const std::string &text) {
   return {
-      {"content", nlohmann::json::array({{{"type", "text"}, {"text", text}}})}};
+      {"content", Json::array({{{"type", "text"}, {"text", text}}})}};
 }
 
 /** 构造错误的 MCP 响应。 */
-nlohmann::json McpServer::make_error(const std::string &message) {
-  return {{"content", nlohmann::json::array(
+Json McpServer::make_error(const std::string &message) {
+  return {{"content", Json::array(
                           {{{"type", "text"}, {"text", "Error: " + message}}})},
           {"isError", true}};
 }

@@ -398,7 +398,7 @@ CodeGraph 使用 tree-sitter 解析，目前支持以下语言：
 ## 依赖
 
 - SQLite3
-- nlohmann_json
+- simdjson
 - tree-sitter（通过 npm 安装，C 源码编译进项目）
 - pthread
 - sentence-transformers（可选，用于语义搜索）

@@ -222,17 +222,37 @@ target_link_libraries(ts_glsl PUBLIC tree_sitter)
 # ── SQLite3 ──
 find_package(SQLite3 REQUIRED)
 
-# ── nlohmann/json ──
-find_package(nlohmann_json 3.10 QUIET)
-if(NOT TARGET nlohmann_json::nlohmann_json)
-    if(NOT WIN32)
-        set(NLOHMANN_JSON_FALLBACK_DIR /usr/include)
-    else()
-        set(NLOHMANN_JSON_FALLBACK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann_json/include)
+# ── simdjson ──
+find_package(simdjson 4.0 QUIET)
+if(NOT TARGET simdjson::simdjson)
+    set(SIMDJSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/simdjson)
+    if(NOT EXISTS ${SIMDJSON_DIR}/simdjson.h)
+        file(DOWNLOAD
+            https://raw.githubusercontent.com/simdjson/simdjson/v4.6.4/singleheader/simdjson.h
+            ${SIMDJSON_DIR}/simdjson.h
+            TIMEOUT 60
+            STATUS simdjson_h_status
+        )
+        list(GET simdjson_h_status 0 simdjson_h_code)
+        if(NOT simdjson_h_code EQUAL 0)
+            message(FATAL_ERROR "Failed to download simdjson.h. Please install simdjson manually or check your network.")
+        endif()
     endif()
-    add_library(nlohmann_json_fallback INTERFACE)
-    target_include_directories(nlohmann_json_fallback INTERFACE ${NLOHMANN_JSON_FALLBACK_DIR})
-    add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json_fallback)
+    if(NOT EXISTS ${SIMDJSON_DIR}/simdjson.cpp)
+        file(DOWNLOAD
+            https://raw.githubusercontent.com/simdjson/simdjson/v4.6.4/singleheader/simdjson.cpp
+            ${SIMDJSON_DIR}/simdjson.cpp
+            TIMEOUT 60
+            STATUS simdjson_cpp_status
+        )
+        list(GET simdjson_cpp_status 0 simdjson_cpp_code)
+        if(NOT simdjson_cpp_code EQUAL 0)
+            message(FATAL_ERROR "Failed to download simdjson.cpp. Please install simdjson manually or check your network.")
+        endif()
+    endif()
+    add_library(simdjson_fallback STATIC ${SIMDJSON_DIR}/simdjson.cpp)
+    target_include_directories(simdjson_fallback PUBLIC ${SIMDJSON_DIR})
+    add_library(simdjson::simdjson ALIAS simdjson_fallback)
 endif()
 
 # ── Main library ──
@@ -281,7 +301,7 @@ target_include_directories(codegraph_core PUBLIC
 
 target_link_libraries(codegraph_core PUBLIC
     SQLite::SQLite3
-    nlohmann_json::nlohmann_json
+    simdjson::simdjson
     tree_sitter
     ts_cpp
     ts_python

@@ -5,7 +5,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/codegraphTargets.cmake")
 # 查找传递依赖（这些是 PUBLIC 依赖）
 include(CMakeFindDependencyMacro)
 find_dependency(SQLite3 REQUIRED)
-find_dependency(nlohmann_json REQUIRED)
+find_dependency(simdjson REQUIRED)
 
 # 设置版本变量
 set(codegraph_VERSION "@PROJECT_VERSION@")
