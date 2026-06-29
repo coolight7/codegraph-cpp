@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(codegraph-cpp VERSION 0.1.0 LANGUAGES C CXX)
+include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600 -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
@@ -347,6 +347,36 @@ add_executable(test_basic tests/test_basic.cpp)
 target_link_libraries(test_basic PRIVATE codegraph_core)
 add_test(NAME basic COMMAND test_basic)
 
+install(TARGETS codegraph_core  DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS tree_sitter     DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_cpp          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_python       DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_javascript   DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_dart         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_typescript   DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_tsx          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_markdown     DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_markdown_inline   DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_rust         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_bash         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_go           DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_java         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_kotlin       DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_php          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_swift        DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_objc         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_csharp       DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_sql          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_lua          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_yaml         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_json         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_xml          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_html         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_css          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_zig          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_ruby         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS ts_glsl         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
 install(TARGETS codegraph_core
     EXPORT codegraphTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -354,7 +384,10 @@ install(TARGETS codegraph_core
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-install(DIRECTORY include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/codegraph
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/codegraph"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY "${TS_DIR}/lib/include/tree_sitter"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
