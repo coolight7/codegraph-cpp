@@ -62,6 +62,11 @@ public:
   /** 初始化数据库 schema（建表、索引、触发器）。 */
   void init_schema();
 
+  /** WAL checkpoint: 将 -wal 日志合并进主数据库文件 (TRUNCATE 模式)。
+   *  索引批量完成后调用, 确保已提交数据落主库 (进程被强杀/外部清理 -wal 也不丢)。
+   *  需在无活跃事务时调用。 */
+  void wal_checkpoint();
+
   // ── 事务管理 ──
 
   /** 开始事务。 */

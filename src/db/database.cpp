@@ -400,6 +400,14 @@ void Database::exec(const char *sql) {
 /** 初始化数据库 schema（建表、建索引、建触发器）。 */
 void Database::init_schema() { exec(SCHEMA_SQL); }
 
+/**
+ * WAL checkpoint: 将 -wal 日志合并进主数据库文件 (TRUNCATE 模式)。
+ * - 索引批量完成后调用, 确保已提交数据及时落主库文件; 即使进程被强杀
+ *   且 -wal 文件被外部清理, 已索引数据也不丢失
+ * - 不启动新事务, 需在无活跃事务时调用
+ */
+void Database::wal_checkpoint() { exec("PRAGMA wal_checkpoint(TRUNCATE)"); }
+
 /** 开始事务。 */
 void Database::begin_transaction() { exec("BEGIN"); }
 /** 提交事务。 */
