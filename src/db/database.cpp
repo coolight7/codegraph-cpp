@@ -171,6 +171,7 @@ static std::string make_fts_query(const std::string &query) {
  *
  * 索引：
  *   - idx_nodes_name: 按名字查找节点
+ *   - idx_nodes_qualified_name: 按全限定名精确查找节点 (点查)
  *   - idx_nodes_file: 按文件查找节点
  *   - idx_edges_source/target: 按源/目标查找边
  *   - idx_edges_kind: 按类型过滤边
@@ -247,6 +248,7 @@ CREATE TRIGGER IF NOT EXISTS nodes_au AFTER UPDATE ON nodes BEGIN
 END;
 
 CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
+CREATE INDEX IF NOT EXISTS idx_nodes_qualified_name ON nodes(qualified_name);
 CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
@@ -485,9 +487,28 @@ std::optional<Node> Database::get_node(int64_t id) {
  */
 std::vector<Node> Database::find_nodes_by_name(const std::string &name,
                                                int limit) {
+  if (limit <= 0) {
+    return {};
+  }
   std::vector<Node> results;
+  results.reserve(static_cast<size_t>(limit));
+
+  // 公共列清单与组内排序 (优先级: 有 signature 的定义 > 前向声明,
+  // .cpp/.cc 实现 > 头文件声明)
+  static constexpr const char *kCols =
+      "id, kind, name, qualified_name, file_path, language, line, col, "
+      "end_line, end_col, signature, docstring, visibility, is_static, "
+      "is_const, is_exported";
+  static constexpr const char *kOrder =
+      "ORDER BY CASE WHEN signature IS NOT NULL AND signature != '' THEN 0 "
+      "ELSE 1 END, "
+      "CASE WHEN file_path LIKE '%.cpp' THEN 0 WHEN file_path LIKE '%.cc' "
+      "THEN 0 ELSE 1 END";
 
   auto append_rows = [&](const char *sql, auto bind_fn, int max_rows) {
+    if (max_rows <= 0) {
+      return;
+    }
     sqlite3_stmt *stmt =
         prepare_or_throw(db_, sql, "prepare find_nodes_by_name");
     StmtGuard guard(stmt);
@@ -499,45 +520,72 @@ std::vector<Node> Database::find_nodes_by_name(const std::string &name,
     }
   };
 
-  // 第一阶段：精确匹配 + 后缀匹配
-  const char *exact_sql =
-      R"(SELECT id, kind, name, qualified_name, file_path, language, line, col, end_line, end_col, signature, docstring, visibility, is_static, is_const, is_exported
-        FROM nodes WHERE kind NOT IN (0, 10, 11) AND (name=? OR qualified_name=? OR qualified_name LIKE ?)
-        ORDER BY CASE WHEN name=? THEN 0 WHEN qualified_name=? THEN 1 WHEN qualified_name LIKE ? THEN 2 ELSE 3 END,
-                 CASE WHEN signature IS NOT NULL AND signature != '' THEN 0 ELSE 1 END,
-                 CASE WHEN file_path LIKE '%.cpp' THEN 0 WHEN file_path LIKE '%.cc' THEN 0 ELSE 1 END
-        LIMIT ?)";
-  std::string suffix_pattern = "%::" + name;
+  // 阶段 1: 精确 name (idx_nodes_name 索引点查, 命中即返回, 无全表扫描)
+  std::string exact_name_sql = std::string("SELECT ") + kCols +
+                               " FROM nodes WHERE kind NOT IN (0, 10, 11) "
+                               "AND name=? " +
+                               kOrder + " LIMIT ?";
   append_rows(
-      exact_sql,
+      exact_name_sql.c_str(),
       [&](sqlite3_stmt *stmt, int max_rows) {
         sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, suffix_pattern.c_str(), -1,
-                          SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 5, name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 6, suffix_pattern.c_str(), -1,
-                          SQLITE_TRANSIENT);
-        sqlite3_bind_int(stmt, 7, max_rows);
+        sqlite3_bind_int(stmt, 2, max_rows);
       },
       limit);
 
   int remaining = limit - static_cast<int>(results.size());
-  if (remaining <= 0)
+  if (remaining <= 0) {
     return results;
+  }
 
-  // 第二阶段：模糊匹配（排除已匹配的精确结果）
-  const char *like_sql =
-      R"(SELECT id, kind, name, qualified_name, file_path, language, line, col, end_line, end_col, signature, docstring, visibility, is_static, is_const, is_exported
-        FROM nodes
-        WHERE kind NOT IN (0, 10, 11) AND (name LIKE ? OR qualified_name LIKE ?)
-          AND name<>?
-          AND (qualified_name IS NULL OR qualified_name<>?)
-        LIMIT ?)";
+  // 阶段 2: 精确 qualified_name (idx_nodes_qualified_name 索引点查)
+  std::string exact_qual_sql = std::string("SELECT ") + kCols +
+                               " FROM nodes WHERE kind NOT IN (0, 10, 11) "
+                               "AND qualified_name=? " +
+                               kOrder + " LIMIT ?";
+  append_rows(
+      exact_qual_sql.c_str(),
+      [&](sqlite3_stmt *stmt, int max_rows) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, max_rows);
+      },
+      remaining);
+
+  remaining = limit - static_cast<int>(results.size());
+  if (remaining <= 0) {
+    return results;
+  }
+
+  // 阶段 3: 后缀匹配 qualified_name LIKE '%::name' (全表, 仅前两阶段不足时兜底)
+  std::string suffix_sql = std::string("SELECT ") + kCols +
+                           " FROM nodes WHERE kind NOT IN (0, 10, 11) "
+                           "AND qualified_name LIKE ? " +
+                           kOrder + " LIMIT ?";
+  std::string suffix_pattern = "%::" + name;
+  append_rows(
+      suffix_sql.c_str(),
+      [&](sqlite3_stmt *stmt, int max_rows) {
+        sqlite3_bind_text(stmt, 1, suffix_pattern.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, max_rows);
+      },
+      remaining);
+
+  remaining = limit - static_cast<int>(results.size());
+  if (remaining <= 0) {
+    return results;
+  }
+
+  // 阶段 4: 模糊匹配 (全表, 仅前三个阶段不足时兜底; 排除前面已精确命中的行)
+  std::string like_sql = std::string("SELECT ") + kCols +
+                         " FROM nodes WHERE kind NOT IN (0, 10, 11) "
+                         "AND (name LIKE ? OR qualified_name LIKE ?) "
+                         "AND name<>? AND (qualified_name IS NULL OR "
+                         "qualified_name<>?) " +
+                         kOrder + " LIMIT ?";
   std::string like_pattern = "%" + name + "%";
   append_rows(
-      like_sql,
+      like_sql.c_str(),
       [&](sqlite3_stmt *stmt, int max_rows) {
         sqlite3_bind_text(stmt, 1, like_pattern.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, like_pattern.c_str(), -1, SQLITE_TRANSIENT);
@@ -573,6 +621,22 @@ std::vector<Node> Database::find_nodes_by_file(const std::string &file_path) {
   return results;
 }
 
+/** 获取全部节点（单条 SQL 全量加载）。 */
+std::vector<Node> Database::get_all_nodes() {
+  std::vector<Node> results;
+  const char *sql =
+      "SELECT id, kind, name, qualified_name, file_path, language, line, col, "
+      "end_line, end_col, signature, docstring, visibility, is_static, "
+      "is_const, is_exported FROM nodes";
+  sqlite3_stmt *stmt = prepare_or_throw(db_, sql, "prepare get_all_nodes");
+  StmtGuard guard(stmt);
+  int rc = SQLITE_OK;
+  while ((rc = step_or_throw(db_, stmt, "get_all_nodes")) == SQLITE_ROW) {
+    results.push_back(read_node_row(stmt));
+  }
+  return results;
+}
+
 /** 统计节点总数。 */
 int64_t Database::count_nodes() {
   sqlite3_stmt *stmt = prepare_or_throw(db_, "SELECT COUNT(*) FROM nodes",
@@ -582,6 +646,24 @@ int64_t Database::count_nodes() {
     throw std::runtime_error("count_nodes: no result row");
   }
   return sqlite3_column_int64(stmt, 0);
+}
+
+/**
+ * 获取所有函数/方法节点 ID（单条 SQL）。
+ * 用于图级分析（SCC/循环依赖/指标统计）：一次性取回节点全集，
+ * 替代"逐文件 find_nodes_by_file"的 N 次查询（大库可慢两个数量级）。
+ */
+std::vector<int64_t> Database::get_function_node_ids() {
+  std::vector<int64_t> results;
+  // NodeKind::Function=1, NodeKind::Method=2
+  const char *sql = "SELECT id FROM nodes WHERE kind IN (1, 2)";
+  sqlite3_stmt *stmt = prepare_or_throw(db_, sql, "prepare get_function_node_ids");
+  StmtGuard guard(stmt);
+  int rc = SQLITE_OK;
+  while ((rc = step_or_throw(db_, stmt, "get_function_node_ids")) == SQLITE_ROW) {
+    results.push_back(sqlite3_column_int64(stmt, 0));
+  }
+  return results;
 }
 
 // ── 边操作 ──
@@ -663,6 +745,34 @@ std::vector<Edge> Database::get_edges_to(int64_t target_id, EdgeKind kind) {
         sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6)
                                      : (const unsigned char *)"");
     results.push_back(e);
+  }
+  return results;
+}
+
+/**
+ * 获取所有"函数/方法节点之间的 Calls 边"（单条 SQL JOIN）。
+ * 用于图级分析（SCC/循环依赖）：一次性取回调用图邻接表，
+ * 替代"逐节点 get_edges_from"的 N 次查询（大库可慢两个数量级）。
+ *
+ * SQL 说明：
+ *   - edges.kind=1 为 EdgeKind::Calls；nodes.kind IN (1,2) 为 Function/Method
+ *   - 两端 JOIN nodes 过滤：只保留函数/方法之间的调用边（与
+ *     find_sccs/compute_metrics 的过滤语义一致）
+ *   - edges 的 idx_edges_kind / idx_edges_source 索引 + nodes 主键查找，
+ *     单条查询即可完成全图邻接表构建
+ */
+std::vector<std::pair<int64_t, int64_t>> Database::get_function_call_edges() {
+  std::vector<std::pair<int64_t, int64_t>> results;
+  const char *sql =
+      "SELECT e.source_id, e.target_id FROM edges e "
+      "JOIN nodes s ON s.id = e.source_id AND s.kind IN (1, 2) "
+      "JOIN nodes t ON t.id = e.target_id AND t.kind IN (1, 2) "
+      "WHERE e.kind = 1";
+  sqlite3_stmt *stmt = prepare_or_throw(db_, sql, "prepare get_function_call_edges");
+  StmtGuard guard(stmt);
+  int rc = SQLITE_OK;
+  while ((rc = step_or_throw(db_, stmt, "get_function_call_edges")) == SQLITE_ROW) {
+    results.emplace_back(sqlite3_column_int64(stmt, 0), sqlite3_column_int64(stmt, 1));
   }
   return results;
 }

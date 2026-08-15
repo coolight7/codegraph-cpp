@@ -363,30 +363,17 @@ TraversalResult GraphTraverser::build_context(int64_t node_id, int max_depth) {
  *   - on_stack: 快速判断节点是否在栈中（O(1) 查找）
  */
 std::vector<std::vector<int64_t>> GraphTraverser::find_sccs() {
-  // 第一步：收集所有函数/方法节点，构建邻接表。
+  // 第一步：一次性取回调用图（各一条 SQL），构建邻接表。
   // 只关注 Function 和 Method（不包括 Class、Variable 等），
-  // 因为调用图中的循环才是有意义的模式。
-  auto all_files = db_.get_all_files();
-  std::unordered_set<int64_t> node_ids;
+  // 因为调用图中的循环才是有意义的结构。
+  //
+  // 性能说明：原实现"逐文件 find_nodes_by_file + 逐节点 get_edges_from"
+  // 在数千函数/数万边的库上执行 ~3000 次独立 SQL（prepare/step/finalize
+  // 全走一遍），debug 构建实测分钟级；改为批量查询后仅 2 次 SQL，毫秒级。
+  auto node_ids = db_.get_function_node_ids();
   std::unordered_map<int64_t, std::vector<int64_t>> adj; // 邻接表
-
-  for (const auto &file : all_files) {
-    auto nodes = db_.find_nodes_by_file(file.path);
-    for (const auto &n : nodes) {
-      if (n.kind == NodeKind::Function || n.kind == NodeKind::Method) {
-        node_ids.insert(n.id);
-      }
-    }
-  }
-
-  // 从调用边构建邻接表
-  for (int64_t id : node_ids) {
-    auto edges = db_.get_edges_from(id, EdgeKind::Calls);
-    for (const auto &e : edges) {
-      if (node_ids.contains(e.target_id)) {
-        adj[id].push_back(e.target_id);
-      }
-    }
+  for (const auto &[src, dst] : db_.get_function_call_edges()) {
+    adj[src].push_back(dst);
   }
 
   // 第二步：Tarjan 算法主体

@@ -29,6 +29,7 @@
 #include <optional>
 #include <sqlite3.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace codegraph {
@@ -91,12 +92,20 @@ public:
   std::optional<Node> get_node(int64_t id);
 
   /**
-   * 按名字查找节点（两阶段：精确 + 模糊）。
+   * 按名字查找节点（渐进式多阶段，索引优先）。
    *
-   * 排序优先级：
-   *   1. 名字匹配度：精确 name > 精确 qualified_name > 后缀匹配
-   *   2. 有 signature 的优先（定义 > 前向声明）
-   *   3. .cpp/.cc 文件优先（实现 > 头文件声明）
+   * 匹配优先级（按序执行，每步不足 limit 才继续下一步）：
+   *   1. 精确 name（idx_nodes_name 索引点查）
+   *   2. 精确 qualified_name（idx_nodes_qualified_name 索引点查）
+   *   3. 后缀匹配 qualified_name LIKE '%::name'（全表，兜底）
+   *   4. 模糊匹配 name/qualified_name LIKE '%name%'（全表，兜底）
+   *
+   * 组内排序优先级：
+   *   1. 有 signature 的优先（定义 > 前向声明）
+   *   2. .cpp/.cc 文件优先（实现 > 头文件声明）
+   *
+   * 索引点查 (步骤 1/2) 命中时 O(log n) 返回, 不再触发全表扫描;
+   * 大库 (数万节点) 下高频查询 (如引用解析/符号定位) 由此避免每次全表 + 排序。
    *
    * @param name 符号名
    * @param limit 最大返回数量
@@ -110,8 +119,23 @@ public:
    */
   std::vector<Node> find_nodes_by_file(const std::string &file_path);
 
+  /**
+   * 获取全部节点（单条 SQL 全量加载）。
+   * 用于引用解析等需要"名字 -> 候选"内存索引的场景：
+   * 一次加载后由调用方在内存中建立哈希索引, 替代每条引用一次 SQL 查询
+   * (大库 + 数千条引用时可慢两个数量级)。
+   */
+  std::vector<Node> get_all_nodes();
+
   /** 统计节点总数。 */
   int64_t count_nodes();
+
+  /**
+   * 获取所有函数/方法节点 ID（单条 SQL）。
+   * 用于图级分析（SCC/循环依赖/指标统计）：一次性取回节点全集，
+   * 替代"逐文件 find_nodes_by_file"的 N 次查询（大库可慢两个数量级）。
+   */
+  std::vector<int64_t> get_function_node_ids();
 
   // ── 边操作 ──
 
@@ -132,6 +156,15 @@ public:
    * 例：get_edges_to(id, Calls) → 谁调用了该函数
    */
   std::vector<Edge> get_edges_to(int64_t target_id, EdgeKind kind);
+
+  /**
+   * 获取所有"函数/方法节点之间的 Calls 边"（单条 SQL JOIN）。
+   * 用于图级分析（SCC/循环依赖）：一次性取回调用图邻接表，
+   * 替代"逐节点 get_edges_from"的 N 次查询（大库可慢两个数量级）。
+   *
+   * @return 边列表，每项为 (source_id, target_id)，两端均为 Function/Method 节点
+   */
+  std::vector<std::pair<int64_t, int64_t>> get_function_call_edges();
 
   /**
    * 获取从某节点出发的所有边（不限类型）。
