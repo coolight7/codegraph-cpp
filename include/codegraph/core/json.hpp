@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <initializer_list>
 #include <map>
 #include <sstream>
@@ -83,8 +84,16 @@ public:
     }
 
     static Json parse(const std::string& s) {
+        // simdjson ondemand 要求输入缓冲尾部带 SIMDJSON_PADDING 零字节
+        // (iterate 时检查 has_padding); 直接 iterate(s) 对无 padding 输入
+        // 报 INSUFFICIENT_PADDING。此处补齐后以原长度 string_view 解析。
+        std::string padded(s.size() + simdjson::SIMDJSON_PADDING, '\0');
+        std::memcpy(padded.data(), s.data(), s.size());
         simdjson::ondemand::parser parser;
-        auto doc = parser.iterate(s);
+        // 带 capacity 的重载: 声明底层缓冲含 padding (simdjson 检查 capacity)
+        auto doc = parser.iterate(
+            std::string_view(padded.data(), s.size()), padded.capacity()
+        );
         return from_simdjson_value(doc.get_value());
     }
 
