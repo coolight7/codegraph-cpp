@@ -332,7 +332,8 @@ target_link_libraries(codegraph_core PUBLIC
     ts_glsl
 )
 
-if(NOT WIN32)
+# Android bionic 将 pthread 并入 libc, 无独立 libpthread 库, 不链接
+if(NOT WIN32 AND NOT ANDROID)
     target_link_libraries(codegraph_core PUBLIC pthread)
 endif()
 
