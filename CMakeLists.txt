@@ -6,9 +6,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(WIN32)
-    add_definitions(-D_WIN32_WINNT=0x0600 -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     /utf-8")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+    # 与主项目保持一致: 要求 Win10 (0x0A00), 避免与工具链的 0x0A00 重复定义警告
+    add_definitions(-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+    if(MSVC)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     /utf-8")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+    endif()
 endif()
 
 # ── tree-sitter from npm (matching version for grammars) ──
